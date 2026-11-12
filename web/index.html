@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lexify · 法律数据工作台</title>
-<meta name="description" content="Lexify 把散落在法院公告、庭审排期与政府采购平台里的公开信息，整理成可直接筛选取用的结构化数据库：招标雷达、开庭公告、执行悬赏，以及即将上线的执行与破产案件。">
+<title>Lexify · 法律数据洞察平台</title>
+<meta name="description" content="Lexify 是面向律师与律所的法律数据洞察平台：把法院公告、庭审排期与政府采购平台上的公开信息，还原成一张法律服务需求地图——谁在打官司、标的多少、谁在花钱买法律服务。不做案源买卖，只做展业判断的依据。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230f6e5d'/><g transform='scale(1.3333)'><path d='M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z' fill='white'/></g></svg>">
 <script>
 /* 主题在首帧前定好，避免深色偏好先闪白 */
@@ -31,15 +31,15 @@
     </span>
     <span class="brand-text">
       <strong>Lexify</strong>
-      <em>法律数据工作台</em>
+      <em>法律数据洞察平台</em>
     </span>
   </a>
 
   <nav class="nav" id="nav">
     <a href="#boards" class="on">看板</a>
+    <a href="#why">为什么</a>
     <a href="#soon">路线图</a>
     <a href="#sources">数据源</a>
-    <a href="#about">关于</a>
   </nav>
 
   <div class="topbar-right">
@@ -73,17 +73,18 @@
         <div class="hero-copy">
           <p class="eyebrow">
             <span class="dot"></span>
-            覆盖 452 家法院与采购平台 · 每日增量采集
+            <span data-m="orgs" data-fmt="int">459</span> 家法院与采购平台 · 每日增量采集
           </p>
 
           <h1 class="hero-title">
-            散落的司法信息，<br>
-            整理成能直接<span class="hl">开工</span>的那份数据。
+            谁刚被起诉，<br>
+            谁正在<span class="hl">买法律服务</span>。
           </h1>
 
           <p class="hero-sub">
-            法院公告、庭审排期、政府采购平台——这些信息本来就公开，只是碎在几百个网站里。
-            Lexify 把它们拆成字段、去重、算好倒计时和金额，放进同一个看板。
+            这两件事公告里都写着，只是碎在几百个法院与采购网站里。
+            Lexify 每日把它们拆成字段、去重、算好倒计时与金额，收敛成一张可检索的
+            <strong>法律服务需求地图</strong>——先看清市场在哪，再谈怎么触达。
           </p>
 
           <form class="searchbar" id="searchForm" autocomplete="off">
@@ -99,7 +100,7 @@
           <div class="hot">
             <button data-q="建设工程施工合同">建设工程施工合同</button>
             <button data-q="破产清算">破产清算</button>
-            <button data-q="司法辅助">司法辅助</button>
+            <button data-q="法律服务">法律服务采购</button>
             <button data-q="票据">票据纠纷</button>
           </div>
         </div>
@@ -132,8 +133,8 @@
   <section class="boards" id="boards">
     <div class="wrap">
       <header class="sec-head">
-        <h2>三个看板</h2>
-        <p>同一套逻辑：把公开信息拆成字段，加上筛选、排序与倒计时，十秒判断这条值不值得跟。</p>
+        <h2>三块数据，一张需求地图</h2>
+        <p>招标是被明码标价的需求，开庭与悬赏是还没人替它说出口的需求。三块字段是同构的：谁、多少钱、什么时候、在哪。</p>
       </header>
 
       <div class="board-grid">
@@ -150,7 +151,7 @@
             </span>
             <div>
               <h3>招标雷达<span class="en">Tender Radar</span></h3>
-              <p class="card-desc">全国政府采购与公共资源交易平台的<strong>法律服务类</strong>招标，自动抽取预算金额与投标截止时间。</p>
+              <p class="card-desc">全国政府采购与公共资源交易平台的<strong>法律服务类</strong>招标——需求已经被标价：谁在买、预算多少、什么时候截止。</p>
             </div>
           </div>
 
@@ -188,7 +189,7 @@
             </span>
             <div>
               <h3>开庭公告<span class="en">Hearing Docket</span></h3>
-              <p class="card-desc">法院开庭传票与排期表，识别<strong>被告是企业、案由是商事纠纷</strong>的案件——刚收到传票、还没委托律师。</p>
+              <p class="card-desc">法院开庭传票与排期表，识别<strong>被告是企业、案由是商事纠纷</strong>的案件——刚被拖进诉讼，还没委托律师。</p>
             </div>
           </div>
 
@@ -226,7 +227,7 @@
             </span>
             <div>
               <h3>执行悬赏<span class="en">Bounty Notice</span></h3>
-              <p class="card-desc">法院执行悬赏公告，拆出被执行人与执行标的，换算成<strong>实际能拿到手的赏金</strong>。</p>
+              <p class="card-desc">法院执行悬赏公告，拆出被执行人与执行标的，换算成<strong>实际能拿到手的赏金</strong>——执行阶段的缺口在哪。</p>
             </div>
           </div>
 
@@ -255,12 +256,37 @@
     </div>
   </section>
 
+  <!-- ───────────────── 定位 ───────────────── -->
+  <section class="sources" id="why">
+    <div class="wrap">
+      <header class="sec-head tight">
+        <h2>为什么不是又一个获客工具</h2>
+        <p>广告买曝光，社交攒关系，而委托发生在别人刚出问题的那一刻。</p>
+      </header>
+
+      <div class="src-grid">
+        <div class="src">
+          <span class="src-k">先看市场，再谈触达</span>
+          <p>律师不缺渠道，缺的是「现在谁有需求」。数据不替你发消息，只把名单缩到值得打的那几十个。</p>
+        </div>
+        <div class="src">
+          <span class="src-k">不卖案源</span>
+          <p>不做转介、不按案源结果分成，也不提供可外呼的个人名录。交付的是判断依据，不是客户名单。</p>
+        </div>
+        <div class="src">
+          <span class="src-k">口径可核</span>
+          <p>每个数字都能回到公告原文；推算出来的开庭日、赏金单独打标，行业数据连估算方法一起公开。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ───────────────── 路线图 ───────────────── -->
   <section class="soon" id="soon">
     <div class="wrap">
       <header class="sec-head tight">
         <h2>接下来要接进来的</h2>
-        <p>同一套采集与解析管线，新增一个看板只是多一个数据源适配。</p>
+        <p>执行与破产接的是需求的下游，行业大盘与供给侧画像接的是判断的上游。同一套管线，多一个数据源适配。</p>
       </header>
 
       <div class="soon-grid">
@@ -295,6 +321,39 @@
           </div>
           <span class="pill">规划中</span>
         </article>
+
+        <article class="card soon-card">
+          <div class="card-top">
+            <span class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19h16"/><path d="M7 19V11M12 19V6M17 19v-5"/>
+              </svg>
+            </span>
+            <div>
+              <h3>行业大盘<span class="en">Industry Index</span></h3>
+              <p class="card-desc">案件量、标的额、案由结构与区域热度按季切片，看清哪条赛道在涨。估算口径与方法一并公开。</p>
+            </div>
+          </div>
+          <span class="pill">规划中</span>
+        </article>
+
+        <article class="card soon-card">
+          <div class="card-top">
+            <span class="card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/>
+                <path d="M16 5.5h5M16 9h5M16 12.5h3"/>
+              </svg>
+            </span>
+            <div>
+              <h3>律所与律师画像<span class="en">Supply Side</span></h3>
+              <p class="card-desc">规模、擅长案由、代理记录与中标历史。供给侧补上，需求清单才谈得上竞争情报。</p>
+            </div>
+          </div>
+          <span class="pill">规划中</span>
+        </article>
       </div>
     </div>
   </section>
@@ -304,7 +363,7 @@
     <div class="wrap">
       <header class="sec-head tight">
         <h2>数据从哪来</h2>
-        <p>全部是公开信息。只做结构化，不做二次判断，不替代律师意见。</p>
+        <p>全部是公开信息。只做结构化与标注，不替代律师判断。</p>
       </header>
 
       <div class="src-grid">
@@ -336,7 +395,7 @@
       </span>
       <div>
         <strong>Lexify</strong>
-        <p>法律数据工作台 · 开源 · 可自托管</p>
+        <p>法律数据洞察平台 · 开源 · 可自托管</p>
       </div>
     </div>
     <p class="disclaimer">
