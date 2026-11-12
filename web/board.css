@@ -113,6 +113,10 @@
 .kpis .kpi {
   padding: 16px 24px 16px 0;
   position: relative;
+  /* KPI 统一吃固定档：数字 22px / 标签 11.5px，
+     与 .hot .warn .accent 这些页面级通用类解耦 */
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 .kpis .kpi + .kpi { padding-left: 24px; border-left: 1px solid var(--border); }
 .kpis .kpi b {
@@ -131,18 +135,18 @@
   margin-top: 2px;
 }
 /* 只有一个数字拿强调色，其余靠字号与留白 */
-.kpis .kpi.accent b { color: var(--accent-ink); }
+.kpis .kpi--accent b { color: var(--accent-ink); }
 /* 语义靠标签前的 4px 点，而不是把数字染红 */
-.kpis .kpi.hot span::before,
-.kpis .kpi.warn span::before {
+.kpis .kpi--hot span::before,
+.kpis .kpi--warn span::before {
   content: "";
   width: 4px;
   height: 4px;
   border-radius: 50%;
   flex: 0 0 auto;
 }
-.kpis .kpi.hot span::before { background: var(--danger); }
-.kpis .kpi.warn span::before { background: var(--warn); }
+.kpis .kpi--hot span::before { background: var(--danger); }
+.kpis .kpi--warn span::before { background: var(--warn); }
 
 @media (max-width: 900px) {
   .kpis { grid-template-columns: repeat(2, 1fr); }

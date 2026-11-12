@@ -95,7 +95,8 @@
         if (k.fmt === "money") txt = money(v) || "—";
         else if (k.fmt === "yi") txt = v ? (v / 1e8).toFixed(2) + " 亿" : "—";
         else txt = v == null ? "—" : Math.round(v).toLocaleString("zh-CN");
-        return '<div class="kpi ' + (k.tone || "") + '"><b>' + esc(txt) +
+        // tone 用 kpi-- 前缀，避免与 style.css 里 .hot / .warn 这类通用类名撞车
+        return '<div class="kpi' + (k.tone ? " kpi--" + k.tone : "") + '"><b>' + esc(txt) +
                "</b><span>" + esc(lb) + "</span></div>";
       }).join("");
     }
