@@ -263,6 +263,38 @@ def write_board(board):
     return board
 
 
+def pick_sample(hearing, limit=3):
+    """首屏右侧要展示的真实记录。
+
+    挑「被告是企业、已定期、离现在最近、带涉案金额」的三条，
+    让人一眼看到产品实际产出长什么样，而不是一张插画。
+    """
+    cand = [
+        r for r in hearing["rows"]
+        if r["defType"] in ("company", "mixed")
+        and r["defendant"] and len(r["defendant"]) <= 28
+        and r["heaDate"]
+        and r["days"] is not None and r["days"] >= 0
+        and r["amount"]
+    ]
+    # 优先临近的；被告名已过滤到能在一行里读全，不用再截
+    cand.sort(key=lambda r: (r["days"], -(r["amount"] or 0)))
+    out = []
+    for r in cand:
+        out.append({
+            "court": r["court"],
+            "caseNo": r["caseNo"],
+            "cause": r["cause"],
+            "defendant": r["defendant"],
+            "heaDate": r["heaDate"],
+            "days": r["days"],
+            "amount": r["amount"],
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tender-db", default=DEFAULT_TENDER_DB)
@@ -290,6 +322,8 @@ def main():
                 + boards["tender"]["meta"]["sources"],
         "provinces": len(all_provs),
         "boards": {k: b["meta"] for k, b in boards.items()},
+        # 首屏右侧展示的真实记录（不是占位数据）
+        "sample": {"hearing": pick_sample(boards["hearing"])},
     }
     path = os.path.join(OUT_DIR, "overview.js")
     with open(path, "w", encoding="utf-8") as f:

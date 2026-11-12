@@ -393,8 +393,8 @@
 
         html += '<section class="panel"><div class="panel-h">' + esc(d.label) +
                 "<span>共 " + ROWS.length + " 条</span></div><div class=\"panel-b\"><div class=\"dist\">" +
-                (arr.length ? arr.map(function (it) {
-                  return '<div class="dist-row"><span class="dl" title="' + esc(it.k) + '">' +
+                (arr.length ? arr.map(function (it, idx) {
+                  return '<div class="dist-row' + (idx === 0 ? " top" : "") + '"><span class="dl" title="' + esc(it.k) + '">' +
                     esc(it.k) + '</span><span class="dv">' + it.n + "</span>" +
                     '<div class="dist-bar"><i style="width:' +
                     Math.max(3, Math.round(it.n / max * 100)) + '%"></i></div></div>';

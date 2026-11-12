@@ -154,9 +154,12 @@ def check_shell(html_files):
 
     idx = read(os.path.join(WEB, "index.html"))
     ok("首页加载 overview.js", "data/overview.js" in idx)
-    ok("首页三张卡片齐全", idx.count("data-spark=") == 3, "卡片 %d 张" % idx.count("data-spark="))
+    ok("首页三张卡片齐全", idx.count('data-board="') == 3, "卡片 %d 张" % idx.count('data-board="'))
     ok("首页指向三块看板", all(h in idx for h, _, _ in BOARDS))
     ok("首页数字由 data-m 驱动（不是写死）", idx.count("data-m=") >= 8, idx.count("data-m="))
+    # 首屏右侧是真实记录预览，不是装饰图：容器在，数据来自 overview.sample
+    ok("首屏有真实记录预览容器", 'id="previewRows"' in idx)
+    ok("无装饰性迷你柱图残留", "data-spark=" not in idx)
 
 
 def main():

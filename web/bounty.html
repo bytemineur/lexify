@@ -239,7 +239,7 @@
         key: "est", label: "预估赏金", cls: "num", w: "17%", firstDir: "desc",
         render: function (r) {
           if (!r.est) return '<span style="color:var(--text-3)">—</span>';
-          return '<b style="color:var(--m-bounty)">' + esc(money(r.est)) + "</b>";
+          return "<b>" + esc(money(r.est)) + "</b>";
         },
         csvVal: function (r) { return r.est == null ? "" : Math.round(r.est); }
       },
@@ -302,7 +302,7 @@
       var row = function (k, v) { return [k, v]; };
       var reward = "未披露";
       if (r.est) {
-        reward = '<b style="color:var(--m-bounty)">' + esc(money(r.est)) + "</b>（" +
+        reward = "<b>" + esc(money(r.est)) + "</b>（" +
                  Math.round(r.est).toLocaleString("zh-CN") + " 元）";
       }
       var kv = [

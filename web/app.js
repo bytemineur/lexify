@@ -1,4 +1,4 @@
-/* Lexify 首页交互：主题、数字滚动、迷你柱图、全站检索浮层 */
+/* Lexify 首页交互：主题、数字填充、真实记录预览、全站检索浮层 */
 (function () {
   "use strict";
 
@@ -94,20 +94,46 @@
     }
   }
 
-  /* ---------------- 迷你柱图 ---------------- */
-  function initSpark() {
-    var boxes = document.querySelectorAll(".spark[data-spark]");
-    for (var i = 0; i < boxes.length; i++) {
-      var nums = boxes[i].dataset.spark.split(",").map(function (x) { return parseFloat(x) || 0; });
-      var max = Math.max.apply(null, nums) || 1;
-      var html = "";
-      for (var k = 0; k < nums.length; k++) {
-        var h = Math.max(3, Math.round(nums[k] / max * 100));
-        var hi = nums[k] === max && max > 0 ? ' class="hi"' : "";
-        html += '<i' + hi + ' style="height:' + h + '%" title="' + nums[k] + ' 条"></i>';
-      }
-      boxes[i].innerHTML = html;
-    }
+  /* ---------------- 首屏预览 ----------------
+     右侧那块不是插画，是看板里真实的三条记录，由 build_data.py
+     写进 overview.js 的 sample 里。缺失时整块隐藏，不留空壳。 */
+  function initPreview() {
+    var box = $("preview");
+    var list = $("previewRows");
+    var ov = window.__OVERVIEW__;
+    if (!box || !list || !ov) return;
+
+    var rows = (ov.sample && ov.sample.hearing) || [];
+    if (!rows.length) { box.hidden = true; return; }
+
+    list.innerHTML = rows.map(function (r) {
+      var d = r.days;
+      var when = (r.heaDate || "").slice(5).replace("-", "/");
+      var rel = d == null ? "" : (d === 0 ? "今天开庭" : d + " 天后");
+      var sub = [r.court, r.cause].filter(Boolean).join(" · ");
+      var amt = r.amount ? moneyShort(r.amount) : "—";
+      return '<div class="pv-row">' +
+               '<div class="pv-when">' + esc(when) +
+                 '<span class="pv-d' + (d != null && d <= 7 ? " soon" : "") + '">' + esc(rel) + "</span>" +
+               "</div>" +
+               '<div class="pv-party">' + esc(clip(r.defendant, 24)) +
+                 '<span class="pv-meta">' + esc(clip(sub, 36)) + "</span>" +
+               "</div>" +
+               '<div class="pv-amt">' + esc(amt) + "</div>" +
+             "</div>";
+    }).join("");
+  }
+
+  function moneyShort(v) {
+    if (v >= 1e8) return (v / 1e8).toFixed(2).replace(/\.?0+$/, "") + " 亿";
+    if (v >= 1e5) return Math.round(v / 1e4) + " 万";
+    if (v >= 1e4) return (v / 1e4).toFixed(1).replace(/\.0$/, "") + " 万";
+    return Math.round(v).toLocaleString("zh-CN") + " 元";
+  }
+
+  function clip(s, n) {
+    s = String(s == null ? "" : s);
+    return s.length > n ? s.slice(0, n) + "…" : s;
   }
 
   /* ---------------- 检索 ---------------- */
@@ -269,7 +295,7 @@
     initTheme();
     initData();
     initTicker();
-    initSpark();
+    initPreview();
     initSearch();
     initNav();
   }

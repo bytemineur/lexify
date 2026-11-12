@@ -232,9 +232,11 @@
       {
         key: "heaDate", label: "开庭时间", cls: "nowrap", w: "15%", firstDir: "asc",
         render: function (r) {
-          var head = '<span class="t-main">' + esc(whenText(r)) + "</span>";
-          if (r.est) head += ' <span class="tag warn">推算</span>';
-          return head + '<span class="t-sub">' + dayCell(r) + "</span>";
+          // 倒计时与「推算」标记都放第二行，保证每行等高
+          var sub = dayCell(r);
+          if (r.est) sub += ' <span class="tag warn">推算</span>';
+          return '<span class="t-main">' + esc(whenText(r)) + "</span>" +
+                 '<span class="t-sub">' + sub + "</span>";
         },
         csvVal: function (r) { return r.heaAt || ""; }
       },
@@ -363,7 +365,7 @@
         : "法院官网排期表";
       return {
         title: r.court || "开庭公告",
-        sub: (r.caseNo || "") + (r.cause ? " · " + r.cause : ""),
+        sub: [r.caseNo, r.cause].filter(Boolean).join(" · "),
         kv: [
           ["开庭时间", esc(when) + (r.est ? ' <span class="tag warn">推算</span>' : "")],
           ["法庭", esc(r.room || "—")],
