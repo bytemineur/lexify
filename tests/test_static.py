@@ -150,6 +150,22 @@ def check_data():
            re.search(r"amountSum[\s\S]{0,120}?fmt:\s*\"yi\"", html) is not None)
         ok("招标预算 KPI 把条数写进口径说明", "m.withAmount + \" 条\"" in html)
 
+    # 开庭这一项原来是「企业被告 · 15–30 天 33」，和右侧标签讲同一件事；
+    # 换成涉案金额后，同样要求金额对得上、条数退到标签里。
+    if "hearing" in boards:
+        d = boards["hearing"]
+        s = sum(r["amount"] for r in d["rows"] if r.get("amount"))
+        ok("开庭 meta 的涉案金额合计等于各行金额之和",
+           abs((d["meta"].get("amountSum") or 0) - s) < 1,
+           "%s / %s" % (d["meta"].get("amountSum"), s))
+        ok("开庭涉案金额只累计带金额的公告",
+           d["meta"].get("withAmount") == sum(1 for r in d["rows"] if r.get("amount")),
+           "%s 条" % d["meta"].get("withAmount"))
+        html = read(os.path.join(WEB, "hearing.html"))
+        ok("开庭 KPI 取金额（amountSum）而非企业被告条数",
+           "m.amountSum" in html and "m.precise" not in html)
+        ok("开庭 KPI 把有金额的条数写进口径说明", "m.withAmount + \" 条\"" in html)
+
 
 def check_shell(html_files):
     print("\n[5] 看板骨架")

@@ -184,7 +184,13 @@
       { label: "开庭公告", value: function (r, m) { return m.total; } },
       { label: "家法院", value: function (r, m) { return m.courts; } },
       { label: "30 天内开庭", value: function (r, m) { return m.upcoming; }, tone: "accent" },
-      { label: "企业被告 · 15–30 天", value: function (r, m) { return m.precise; }, tone: "hot" }
+      // 原来是「企业被告 · 15–30 天」的条数，与右侧标签口径重复、也不构成金额；
+      // 换成涉案金额，条数退到标签里交代「多少条才有金额」。
+      {
+        label: function (m) { return "已披露涉案金额 · " + m.withAmount + " 条"; },
+        value: function (r, m) { return m.amountSum; },
+        fmt: "money"
+      }
     ],
 
     dayPresets: [

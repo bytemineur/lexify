@@ -179,6 +179,10 @@ def build_hearing(db_path):
     precise = sum(1 for x in rows
                   if x["defType"] in ("company", "mixed") and x["comm"]
                   and x["days"] is not None and 15 <= x["days"] <= 30)
+    # 涉案金额：开庭公告多数只写「详见起诉状」，带金额的是少数。
+    # 合计只对带金额的行求和，未披露的按「无」而不是按 0 计入。
+    with_amount = sum(1 for x in rows if x["amount"])
+    amount_sum = sum(x["amount"] for x in rows if x["amount"])
     return {
         "key": "hearing",
         "name": "开庭公告",
@@ -192,6 +196,8 @@ def build_hearing(db_path):
             "provinces": len(provs),
             "company": company,
             "precise": precise,
+            "withAmount": with_amount,
+            "amountSum": round(amount_sum, 2),
             "upcoming": sum(1 for x in rows if x["days"] is not None and 0 <= x["days"] <= 30),
         },
         "_provs": sorted({norm_prov(x) for x in provs if norm_prov(x)}),
