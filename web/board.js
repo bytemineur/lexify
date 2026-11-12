@@ -90,12 +90,13 @@
       var box = $("kpis");
       box.innerHTML = CFG.kpis.map(function (k) {
         var v = k.value(ALL, META);
+        var lb = typeof k.label === "function" ? k.label(META, ALL) : k.label;
         var txt;
         if (k.fmt === "money") txt = money(v) || "—";
         else if (k.fmt === "yi") txt = v ? (v / 1e8).toFixed(2) + " 亿" : "—";
         else txt = v == null ? "—" : Math.round(v).toLocaleString("zh-CN");
         return '<div class="kpi ' + (k.tone || "") + '"><b>' + esc(txt) +
-               "</b><span>" + esc(k.label) + "</span></div>";
+               "</b><span>" + esc(lb) + "</span></div>";
       }).join("");
     }
 

@@ -115,6 +115,9 @@ def build_tender(db_path):
     conn.close()
 
     with_amount = sum(1 for x in rows if x["amount"])
+    # 已披露预算合计：只有带金额的那 259 条参与求和，
+    # 缺金额的公告不按 0 处理（否则等于谎称预算为零）
+    amount_sum = sum(x["amount"] for x in rows if x["amount"])
     soon = sum(1 for x in rows if x["due"] and 0 <= (day_diff(x["due"]) or -1) <= 7)
     provs = {x["prov"] for x in rows if x["prov"]}
     return {
@@ -129,6 +132,7 @@ def build_tender(db_path):
             "sources": total_src,
             "provinces": len(provs),
             "withAmount": with_amount,
+            "amountSum": round(amount_sum, 2),
             "dueSoon": soon,
         },
         "_provs": sorted({norm_prov(x) for x in provs if norm_prov(x)}),

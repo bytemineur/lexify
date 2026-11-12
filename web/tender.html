@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>招标雷达 · Lexify</title>
 <meta name="description" content="全国政府采购与公共资源交易平台的公开招标，抽取预算金额与投标截止时间，按截止日排序。">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230f6e5d'/><path d='M9 10.5A2.5 2.5 0 0 1 11.5 8H16v16h-4.5A2.5 2.5 0 0 1 9 21.5z' fill='white' opacity='.95'/><path d='M23 10.5A2.5 2.5 0 0 0 20.5 8H16v16h4.5a2.5 2.5 0 0 0 2.5-2.5z' fill='white' opacity='.45'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230f6e5d'/><g transform='scale(1.3333)'><path d='M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z' fill='white'/></g></svg>">
 <script>
 (function () {
   try {
@@ -25,10 +25,9 @@
 <header class="topbar">
   <a class="brand" href="index.html">
     <span class="logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M11 4H7.2A2.2 2.2 0 0 0 5 6.2v11.6A2.2 2.2 0 0 0 7.2 20H11z" fill="currentColor" opacity=".95"/>
-        <path d="M13 4h3.8A2.2 2.2 0 0 1 19 6.2v11.6A2.2 2.2 0 0 1 16.8 20H13z" fill="currentColor" opacity=".38"/>
-      </svg>
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
+        </svg>
     </span>
     <span class="brand-text"><strong>Lexify</strong><em>法律数据工作台</em></span>
   </a>
@@ -159,7 +158,14 @@
       { label: "招标公告", value: function (r, m) { return m.total; } },
       { label: "个采购平台", value: function (r, m) { return m.sources; } },
       { label: "7 天内截止", value: function (r, m) { return m.dueSoon; }, tone: "warn" },
-      { label: "带预算金额", value: function (r, m) { return m.withAmount; }, tone: "accent" }
+      // 这里原本是「带预算金额 259」，259 是条数，标签却写着金额，量纲对不上。
+      // 改成金额本身（亿），条数退到标签里说明口径。
+      {
+        label: function (m) { return "已披露预算合计 · " + m.withAmount + " 条"; },
+        value: function (r, m) { return m.amountSum; },
+        fmt: "yi",
+        tone: "accent"
+      }
     ],
 
     dayPresets: [

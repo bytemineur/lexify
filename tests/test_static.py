@@ -134,6 +134,22 @@ def check_data():
             twins = [p for p in provs if p.endswith("省") and p[:-1] in provs]
             ok("%s 省份无「吉林省/吉林」重复" % key, not twins, ",".join(twins))
 
+    print("\n[4b] KPI 量纲")
+    # KPI 的数字和标签必须是同一个量：条数配「条」，金额配「亿」。
+    # 招标这一项曾经是「带预算金额 259」——259 是条数，标签写的是金额。
+    if "tender" in boards:
+        d = boards["tender"]
+        s = sum(r["amount"] for r in d["rows"] if r.get("amount"))
+        ok("招标 meta 的预算合计等于各行金额之和",
+           abs((d["meta"].get("amountSum") or 0) - s) < 1,
+           "%s / %s" % (d["meta"].get("amountSum"), s))
+        html = read(os.path.join(WEB, "tender.html"))
+        ok("招标预算 KPI 取金额（amountSum）而非条数",
+           "m.amountSum" in html, "见 tender.html 的 kpis")
+        ok("招标预算 KPI 按亿展示",
+           re.search(r"amountSum[\s\S]{0,120}?fmt:\s*\"yi\"", html) is not None)
+        ok("招标预算 KPI 把条数写进口径说明", "m.withAmount + \" 条\"" in html)
+
 
 def check_shell(html_files):
     print("\n[5] 看板骨架")

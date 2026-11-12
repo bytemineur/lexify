@@ -197,9 +197,9 @@ svg { display: block; }
   background: var(--accent);
   color: #fff;
 }
-.logo svg { width: 17px; height: 17px; }
+.logo svg { width: 18px; height: 18px; }
 .logo.sm { width: 24px; height: 24px; border-radius: 7px; }
-.logo.sm svg { width: 14px; height: 14px; }
+.logo.sm svg { width: 15px; height: 15px; }
 
 .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
 .brand-text strong { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
