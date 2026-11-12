@@ -1,0 +1,20 @@
+# 自测临时文件（run_ui_test.py 会写在 web/ 下，跑完自删）
+web/_selftest_*.html
+web/_probe.html
+
+# 调试截图
+shot*.png
+shot_*.png
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 说明：web/data/*.js 是 build_data.py 生成的，但刻意提交进仓库——
+# 源库不在这个项目里，只有带上数据，「clone 下来就能跑」才成立。

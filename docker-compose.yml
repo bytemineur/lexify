@@ -1,0 +1,11 @@
+services:
+  lexify:
+    build: .
+    image: lexify:latest
+    container_name: lexify
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    # 数据重导后不必重建镜像：把 web/data 挂进来即可
+    # volumes:
+    #   - ./web/data:/usr/share/nginx/html/data:ro

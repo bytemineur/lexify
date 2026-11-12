@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>执行悬赏 · Lexify</title>
+<meta name="description" content="全国法院执行悬赏公告，拆出被执行人与执行标的，换算实际能拿到手的赏金，按标的额与比例筛选。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230f6e5d'/><path d='M9 10.5A2.5 2.5 0 0 1 11.5 8H16v16h-4.5A2.5 2.5 0 0 1 9 21.5z' fill='white' opacity='.95'/><path d='M23 10.5A2.5 2.5 0 0 0 20.5 8H16v16h4.5a2.5 2.5 0 0 0 2.5-2.5z' fill='white' opacity='.45'/></svg>">
+<script>
+(function () {
+  try {
+    var pref = localStorage.getItem("lx-theme") || "dark";
+    var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var mode = pref === "auto" ? (dark ? "dark" : "light") : pref;
+    document.documentElement.setAttribute("data-theme", mode);
+    document.documentElement.style.colorScheme = mode;
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="board.css">
+</head>
+<body class="board-bounty">
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M11 4H7.2A2.2 2.2 0 0 0 5 6.2v11.6A2.2 2.2 0 0 0 7.2 20H11z" fill="currentColor" opacity=".95"/>
+        <path d="M13 4h3.8A2.2 2.2 0 0 1 19 6.2v11.6A2.2 2.2 0 0 1 16.8 20H13z" fill="currentColor" opacity=".38"/>
+      </svg>
+    </span>
+    <span class="brand-text"><strong>Lexify</strong><em>法律数据工作台</em></span>
+  </a>
+
+  <nav class="btabs" aria-label="看板切换">
+    <a href="tender.html" data-b="tender"><i class="bdot"></i>招标雷达</a>
+    <a href="hearing.html" data-b="hearing"><i class="bdot"></i>开庭公告</a>
+    <a href="bounty.html" data-b="bounty" class="on"><i class="bdot"></i>执行悬赏</a>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="seg" id="themeSwitch" role="group" aria-label="主题">
+      <button data-theme="light" title="浅色">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>
+        </svg>
+      </button>
+      <button data-theme="dark" title="深色">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 14.5A8.2 8.2 0 0 1 9.5 4a8.4 8.4 0 1 0 10.5 10.5"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="bhead">
+  <div class="wrap">
+    <div class="bhead-in">
+      <div>
+        <h1 id="bTitle"></h1>
+        <p class="sub" id="bSub"></p>
+      </div>
+      <div class="bhead-meta" id="bMeta"></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </div>
+</div>
+
+<div class="filters">
+  <div class="wrap" id="facets"></div>
+</div>
+
+<main class="board-main">
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="tsearch">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="6.6"/><path d="m16.2 16.2 4.3 4.3"/>
+        </svg>
+        <input id="q" type="search" placeholder="搜被执行人、法院、案号或正文…" autocomplete="off">
+      </div>
+      <span class="tcount" id="tcount"></span>
+      <button class="btn-sm" id="btnReset">清空筛选</button>
+      <button class="btn-sm solid" id="btnExport">导出 CSV</button>
+    </div>
+
+    <div class="mgrid">
+      <div class="twrap">
+        <div class="tscroll">
+          <table class="list">
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+      <aside class="aside" id="aside"></aside>
+    </div>
+  </div>
+</main>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-mask" data-close></div>
+  <div class="modal-box">
+    <div class="modal-h">
+      <div>
+        <h3 id="mTitle"></h3>
+        <div class="sub" id="mSub"></div>
+      </div>
+      <button class="modal-x" data-close>×</button>
+    </div>
+    <div class="modal-b" id="mBody"></div>
+    <div class="modal-f">
+      <a class="btn-sm" id="mLink" target="_blank" rel="noopener">去法院官网看原文</a>
+      <button class="btn-sm" data-close>关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="data/bounty.js"></script>
+<script src="board.js"></script>
+<script>
+(function () {
+  var U = window.LexUtil;
+  var esc = U.esc, money = U.money;
+
+  var TYPE_LABEL = { property: "财产线索", whereabouts: "下落线索", both: "财产+下落", unknown: "未注明" };
+
+  function clip(s, n) {
+    s = s || "";
+    if (s.length <= n) return s;
+    return s.slice(0, n) + "…";
+  }
+
+  function typeTag(t) {
+    if (t === "unknown" || !t) return "";
+    return '<span class="tag mc">' + esc(TYPE_LABEL[t] || t) + "</span>";
+  }
+
+  function ratioText(r) {
+    if (r.ratio == null) return '<span style="color:var(--text-3)">—</span>';
+    return "<b>" + (Math.round(r.ratio * 10) / 10) + "%</b>";
+  }
+
+  function validCell(r) {
+    var head = '<span class="t-main">' + esc(r.pub || "—") + "</span>";
+    var sub = "发布日期";
+    if (r.vto) {
+      var d = U.daysFrom(r.vto);
+      if (d != null) {
+        if (d < 0) sub = '<span class="days past">悬赏已到期</span>';
+        else if (d <= 30) sub = '<span class="days week">' + d + " 天后到期</span>";
+        else sub = "有效至 " + r.vto;
+      }
+    }
+    return head + '<span class="t-sub">' + sub + "</span>";
+  }
+
+  LexBoard({
+    title: "执行悬赏",
+    en: "Bounty Notice",
+    tagline: "法院执行悬赏公告。把「执行标的」「悬赏比例」「封顶金额」拆开算，得到的是真正能拿到手的赏金，不是标的额。",
+    dateField: "pub",
+    amountField: "subject",
+    search: ["debtor", "court", "caseNo", "body"],
+
+    metaExtra: function () {
+      return " · 数据源 <b>人民法院公告网 + 深圳/广州等地法院官网</b>";
+    },
+
+    kpis: [
+      { label: "悬赏公告", value: function (r, m) { return m.total; } },
+      { label: "家法院", value: function (r, m) { return m.courts; } },
+      { label: "执行标的合计", value: function (r, m) { return m.subjectSum; }, fmt: "yi", tone: "accent" },
+      { label: "预估赏金合计", value: function (r, m) { return m.rewardSum; }, fmt: "yi", tone: "warn" }
+    ],
+
+    dayPresets: [
+      { key: "p7", label: "近 7 天发布", test: function (d) { return d != null && d >= -7 && d <= 0; } },
+      { key: "p30", label: "近 30 天发布", test: function (d) { return d != null && d >= -30 && d <= 0; } },
+      { key: "p90", label: "近 90 天发布", test: function (d) { return d != null && d >= -90 && d <= 0; } }
+    ],
+
+    facets: [
+      { key: "days", label: "发布日期", type: "days" },
+      {
+        key: "type", label: "悬赏类型", type: "multi", field: "type",
+        labelOf: function (k) { return TYPE_LABEL[k] || k; }
+      },
+      { key: "prov", label: "地区", type: "multi", field: "prov", top: 10 },
+      {
+        key: "amount", label: "执行标的", type: "amount", unit: "元",
+        presets: [
+          { label: "100 万以上", min: 1000000, max: null },
+          { label: "1000 万以上", min: 10000000, max: null },
+          { label: "1 亿以上", min: 100000000, max: null }
+        ]
+      },
+      {
+        key: "src", label: "数据源", type: "multi", field: "src",
+        labelOf: function (k) {
+          var m = { rmfygg: "人民法院公告网", court: "法院官网" };
+          return m[k] || k;
+        }
+      }
+    ],
+
+    sort: { key: "est", dir: "desc" },
+
+    columns: [
+      {
+        key: "debtor", label: "被执行人 / 法院", w: "33%",
+        render: function (r) {
+          var name = r.debtor || "未识别";
+          var main = '<span class="t-main" title="' + esc(name) + '">' + esc(clip(name, 26)) + "</span>";
+          var sub = r.court || "—";
+          if (r.caseNo) sub += " · " + r.caseNo;
+          return main + typeTag(r.type) +
+                 '<span class="t-sub" title="' + esc(sub) + '">' + esc(clip(sub, 34)) + "</span>";
+        }
+      },
+      {
+        key: "subject", label: "执行标的", cls: "num", w: "15%", firstDir: "desc",
+        render: function (r) {
+          if (!r.subject) return '<span style="color:var(--text-3)">—</span>';
+          return "<b>" + esc(money(r.subject)) + "</b>";
+        },
+        csvVal: function (r) { return r.subject == null ? "" : Math.round(r.subject); }
+      },
+      {
+        key: "ratio", label: "悬赏比例", cls: "num", w: "13%", firstDir: "desc",
+        render: ratioText,
+        csvVal: function (r) { return r.ratio == null ? "" : r.ratio + "%"; }
+      },
+      {
+        key: "est", label: "预估赏金", cls: "num", w: "17%", firstDir: "desc",
+        render: function (r) {
+          if (!r.est) return '<span style="color:var(--text-3)">—</span>';
+          return '<b style="color:var(--m-bounty)">' + esc(money(r.est)) + "</b>";
+        },
+        csvVal: function (r) { return r.est == null ? "" : Math.round(r.est); }
+      },
+      {
+        key: "pub", label: "发布 / 有效期", w: "22%", firstDir: "desc",
+        render: validCell
+      }
+    ],
+
+    dist: [
+      { label: "地区分布", field: "prov", top: 8, emptyLabel: "未识别" },
+      {
+        label: "悬赏类型", field: "type", top: 4, emptyLabel: "未注明",
+        labelOf: function (k) { return TYPE_LABEL[k] || k; }
+      }
+    ],
+
+    presets: [
+      {
+        label: "标的 1000 万以上",
+        test: function (r) { return r.subject != null && r.subject >= 1e7; },
+        apply: function (st) { st.amountMin = 10000000; }
+      },
+      {
+        label: "预估赏金 100 万以上",
+        test: function (r) { return r.est != null && r.est >= 1e6; },
+        apply: function (st) {
+          st.sortKey = "est";
+          st.sortDir = "desc";
+          st.amountMin = null;
+        }
+      },
+      {
+        label: "比例 10% 及以上",
+        test: function (r) { return r.ratio != null && r.ratio >= 10; },
+        apply: function (st) { st.multi.type = {}; }
+      }
+    ],
+
+    asideNote: "预估赏金按公告披露的比例与封顶计算，实际以法院认定为准。" +
+      "部分公告只写「按执行到位金额的一定比例」，这类不给预估数。联系电话见详情。",
+
+    detail: function (r) {
+      var row = function (k, v) { return [k, v]; };
+      var reward = "未披露";
+      if (r.est) {
+        reward = '<b style="color:var(--m-bounty)">' + esc(money(r.est)) + "</b>（" +
+                 Math.round(r.est).toLocaleString("zh-CN") + " 元）";
+      }
+      var kv = [
+        row("被执行人", esc(r.debtor || "未识别") + " " + typeTag(r.type)),
+        row("执行法院", esc(r.court || "—")),
+        row("执行案号", esc(r.caseNo || "—")),
+        row("执行标的", r.subject ? "<b>" + esc(money(r.subject)) + "</b>（" +
+            Math.round(r.subject).toLocaleString("zh-CN") + " 元）" : "未披露"),
+        row("悬赏比例", r.ratio == null ? "—" : (Math.round(r.ratio * 10) / 10) + "%"),
+        row("封顶金额", r.cap ? esc(money(r.cap)) : "未设"),
+        row("固定赏金", r.fixed ? esc(money(r.fixed)) : "—"),
+        row("预估赏金", reward),
+        row("悬赏期限", (r.vfrom || "—") + " 至 " + (r.vto || "未注明")),
+        row("发布日期", esc(r.pub || "—")),
+        row("联系电话", esc(r.phone || "公告未披露")),
+        row("数据源", r.src === "rmfygg" ? "人民法院公告网" : "法院官网")
+      ];
+      return {
+        title: r.debtor || "执行悬赏公告",
+        sub: (r.court || "") + (r.caseNo ? " · " + r.caseNo : ""),
+        kv: kv
+      };
+    }
+  });
+
+  var root = document.documentElement;
+  var btns = document.querySelectorAll("#themeSwitch button");
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle("on", btns[i].dataset.theme === root.getAttribute("data-theme"));
+    btns[i].addEventListener("click", function () {
+      var m = this.dataset.theme;
+      root.setAttribute("data-theme", m);
+      root.style.colorScheme = m;
+      try { localStorage.setItem("lx-theme", m); } catch (e) {}
+      for (var j = 0; j < btns.length; j++) btns[j].classList.toggle("on", btns[j].dataset.theme === m);
+    });
+  }
+})();
+</script>
+</body>
+</html>

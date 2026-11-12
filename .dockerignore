@@ -1,0 +1,10 @@
+# 镜像里只需要 web/
+tests/
+scripts/
+docs/
+shot*.png
+*.md
+.git/
+.gitignore
+__pycache__/
+web/_selftest_*.html
