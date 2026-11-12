@@ -36,6 +36,26 @@ def norm_prov(p):
     return p or None
 
 
+# 城市字段跨源不一致：「深圳」「深圳市」「深圳前海」指的是同一个市。
+# 不归一化，前端「城市」筛选会把一个深圳拆成三项。
+_CITY_ALIAS = {
+    "深圳前海": "深圳市",
+    "深圳": "深圳市",
+    "前海": "深圳市",
+}
+_CITY_SUFFIX = ("市", "自治州", "地区", "盟", "区", "县")
+
+
+def norm_city(c):
+    c = (c or "").strip()
+    if not c:
+        return None
+    c = _CITY_ALIAS.get(c, c)
+    if not c.endswith(_CITY_SUFFIX):
+        c += "市"
+    return c
+
+
 def norm_body(v):
     if not v:
         return None
@@ -79,7 +99,7 @@ def build_tender(db_path):
             "agency": r["agency"],
             "amount": r["budget_amount"],
             "prov": r["province"],
-            "city": r["city"],
+            "city": norm_city(r["city"]),
             "cat": r["industry"],
             "pub": (r["publish_time"] or "")[:10] or None,
             "due": (r["deadline"] or "")[:10] or None,
@@ -142,7 +162,7 @@ def build_hearing(db_path):
             "ntype": r["notice_type"],
             "pub": r["publish_date"],
             "prov": r["province"],
-            "city": r["city"],
+            "city": norm_city(r["city"]),
             "src": r["source"],
             "url": r["url"],
             "body": norm_body(r["content"]),
@@ -200,7 +220,7 @@ def build_bounty(db_path):
             "vto": r["valid_to"],
             "phone": r["contact_phone"],
             "prov": r["province"],
-            "city": r["city"],
+            "city": norm_city(r["city"]),
             "src": r["source"],
             "url": r["url"],
             "body": norm_body(r["content"]),

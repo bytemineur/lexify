@@ -190,6 +190,7 @@
         labelOf: function (k) { return TYPE_LABEL[k] || k; }
       },
       { key: "prov", label: "地区", type: "multi", field: "prov", top: 10 },
+      { key: "city", label: "城市", type: "multi", field: "city", top: 8 },
       {
         key: "amount", label: "执行标的", type: "amount", unit: "元",
         presets: [
@@ -275,6 +276,22 @@
         label: "比例 10% 及以上",
         test: function (r) { return r.ratio != null && r.ratio >= 10; },
         apply: function (st) { st.multi.type = {}; }
+      },
+      {
+        label: "深圳 · 中院与各区法院",
+        test: function (r) { return /^深圳市|^广东省深圳市/.test(r.court || ""); },
+        apply: function (st) { st.multi.city = { "深圳市": true }; }
+      },
+      {
+        label: "深圳 · 标的 100 万以上",
+        test: function (r) {
+          return /^深圳市|^广东省深圳市/.test(r.court || "") &&
+                 r.subject != null && r.subject >= 1e6;
+        },
+        apply: function (st) {
+          st.multi.city = { "深圳市": true };
+          st.amountMin = 1000000;
+        }
       }
     ],
 

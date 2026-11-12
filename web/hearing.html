@@ -178,7 +178,7 @@
     search: ["court", "cause", "plaintiff", "defendant", "caseNo", "room", "body"],
 
     metaExtra: function () {
-      return " · 数据源 <b>法院公告网 + 地方法院排期表</b>";
+      return " · 数据源 <b>法院公告网 + 深圳各区法院开庭排期表 / 送达公告</b>";
     },
 
     kpis: [
@@ -204,6 +204,7 @@
       },
       { key: "cause", label: "案由", type: "multi", field: "cause", top: 10 },
       { key: "prov", label: "地区", type: "multi", field: "prov", top: 10 },
+      { key: "city", label: "城市", type: "multi", field: "city", top: 8 },
       {
         key: "amount", label: "涉案金额", type: "amount", unit: "元",
         presets: [
@@ -215,7 +216,11 @@
       {
         key: "src", label: "数据源", type: "multi", field: "src",
         labelOf: function (k) {
-          var m = { rmfygg_kt: "公告网·开庭传票", court_schedule: "法院排期表" };
+          var m = {
+            rmfygg_kt: "公告网·开庭传票",
+            court_schedule: "法院排期表",
+            court_kt: "法院官网·开庭公告"
+          };
           return m[k] || k;
         }
       }
@@ -322,6 +327,22 @@
         label: "标的 100 万以上",
         test: function (r) { return r.amount != null && r.amount >= 1e6; },
         apply: function (st) { st.amountMin = 1000000; }
+      },
+      {
+        label: "深圳 · 中院与各区法院",
+        test: function (r) { return /^深圳市|^广东省深圳市/.test(r.court || ""); },
+        apply: function (st) { st.multi.city = { "深圳市": true }; }
+      },
+      {
+        label: "深圳 · 企业被告",
+        test: function (r) {
+          return /^深圳市|^广东省深圳市/.test(r.court || "") &&
+                 (r.defType === "company" || r.defType === "mixed");
+        },
+        apply: function (st) {
+          st.multi.city = { "深圳市": true };
+          st.multi.defType = { company: true, mixed: true };
+        }
       }
     ],
 
@@ -337,7 +358,9 @@
         amt = "<b>" + esc(money(r.amount)) + "</b>（" +
               Math.round(r.amount).toLocaleString("zh-CN") + " 元）";
       }
-      var srcLabel = (r.src === "rmfygg_kt") ? "人民法院公告网·开庭传票" : "法院官网排期表";
+      var srcLabel = r.src === "rmfygg_kt" ? "人民法院公告网·开庭传票"
+        : r.src === "court_kt" ? "法院官网·开庭公告"
+        : "法院官网排期表";
       return {
         title: r.court || "开庭公告",
         sub: (r.caseNo || "") + (r.cause ? " · " + r.cause : ""),
