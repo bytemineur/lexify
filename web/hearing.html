@@ -177,7 +177,7 @@
     search: ["court", "cause", "plaintiff", "defendant", "caseNo", "room", "body"],
 
     metaExtra: function () {
-      return " · 数据源 <b>法院公告网 + 深圳各区法院开庭排期表 / 送达公告</b>";
+      return " · 数据源 <b>法院公告网（深圳 / 广州 / 东莞 / 惠州）+ 深圳各区法院官网排期表</b>";
     },
 
     kpis: [
@@ -350,6 +350,16 @@
           st.multi.city = { "深圳市": true };
           st.multi.defType = { company: true, mixed: true };
         }
+      },
+      {
+        label: "广州 · 各区法院",
+        test: function (r) { return r.city === "广州市"; },
+        apply: function (st) { st.multi.city = { "广州市": true }; }
+      },
+      {
+        label: "东莞 · 三家法院",
+        test: function (r) { return r.city === "东莞市"; },
+        apply: function (st) { st.multi.city = { "东莞市": true }; }
       }
     ],
 

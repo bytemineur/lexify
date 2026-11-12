@@ -189,6 +189,19 @@ def check_shell(html_files):
     ok("首页三张卡片齐全", idx.count('data-board="') == 3, "卡片 %d 张" % idx.count('data-board="'))
     ok("首页指向三块看板", all(h in idx for h, _, _ in BOARDS))
     ok("首页数字由 data-m 驱动（不是写死）", idx.count("data-m=") >= 8, idx.count("data-m="))
+    # 光绑了 data-m 不够：路径写错时 app.js 会静默跳过，页面留着 HTML 里的旧数字。
+    # 开庭看板从 1,735 涨到 5,278 那次，首页卡片还写着 1,735，就是这么来的。
+    ov_path = os.path.join(DATA, "overview.js")
+    ov = json.loads(re.match(r"^\s*window\.__OVERVIEW__\s*=\s*([\s\S]*);\s*$",
+                             read(ov_path)).group(1))
+    bad = []
+    for path in set(re.findall(r'data-m="([^"]+)"', idx)):
+        node = ov
+        for part in path.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        if node is None:
+            bad.append(path)
+    ok("首页每个 data-m 都能在 overview 里取到值", not bad, ",".join(sorted(bad)))
     # 首屏右侧是真实记录预览，不是装饰图：容器在，数据来自 overview.sample
     ok("首屏有真实记录预览容器", 'id="previewRows"' in idx)
     ok("无装饰性迷你柱图残留", "data-spark=" not in idx)

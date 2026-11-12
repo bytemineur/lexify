@@ -291,6 +291,16 @@
           st.multi.city = { "深圳市": true };
           st.amountMin = 1000000;
         }
+      },
+      {
+        label: "广州 · 各区法院",
+        test: function (r) { return r.city === "广州市"; },
+        apply: function (st) { st.multi.city = { "广州市": true }; }
+      },
+      {
+        label: "东莞 · 三家法院",
+        test: function (r) { return r.city === "东莞市"; },
+        apply: function (st) { st.multi.city = { "东莞市": true }; }
       }
     ],
 
