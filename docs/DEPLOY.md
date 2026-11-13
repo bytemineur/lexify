@@ -69,6 +69,25 @@ sudo cp docker/nginx.conf /etc/nginx/conf.d/lexify.conf   # 里面有 map，得�
 
 纯静态站这样跑最省事，代价是没有 `restart: unless-stopped` 那种自愈能力。
 
+**探测哪个源真的可用**（比逐个手改快）：
+
+```bash
+sudo bash scripts/fix-docker-registry.sh --dry   # 只探测，打印每个源的状态
+sudo bash scripts/fix-docker-registry.sh        # 探测 → 合并写入 daemon.json → 重启 → 试拉
+```
+
+脚本会保留 `daemon.json` 里已有的键（`runtimes` 之类），只覆盖 `registry-mirrors`；一个都探测不到时会直接打印离线镜像的做法然后退出。
+
+**BuildKit 的坑**：`daemon.json` 的 mirrors 只对默认 `docker` 驱动生效。如果 `docker buildx ls` 显示的驱动是 `docker-container`，构建时照样直连 Docker Hub。这种情况下先手工把基础镜像拉下来再改名，构建时本地已有就不会再访问 registry：
+
+```bash
+sudo docker pull docker.m.daocloud.io/library/nginx:alpine
+sudo docker tag  docker.m.daocloud.io/library/nginx:alpine nginx:alpine
+sudo docker compose up -d --build
+```
+
+构建日志里 `current commit information was not captured` 那条 WARNING 可以忽略——`/opt/lexify` 是打包传上去的、不是 git clone，没有 `.git` 而已。
+
 ### 0.2 `permission denied ... /var/run/docker.sock`
 
 当前用户不在 `docker` 组里。`usermod` 之后**必须重新登录 SSH**（`newgrp docker` 只对当前 shell 生效，换个终端又没了）：
