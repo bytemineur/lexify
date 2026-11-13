@@ -316,9 +316,12 @@ html[data-mlp] .ticker > div { padding: 26px 24px 24px 0; border-left: 1px solid
 html[data-mlp] .ticker > div:first-child { border-left: 0; padding-left: 0; }
 html[data-mlp] .ticker > div + div { padding-left: 24px; }
 html[data-mlp] .ticker dt {
-  font-size: 44px; font-weight: 600; line-height: 1.02; letter-spacing: -0.02em; color: var(--blue);
+  /* 固定行盒高度：第四列是「每日」两个字（28px），行高不同会让它下面那行标签
+     整体上移 16px。这里统一高度、文字贴底，四列的下沿与基线才对得齐。 */
+  display: flex; align-items: flex-end; height: 45px; line-height: 1;
+  font-size: 44px; font-weight: 600; letter-spacing: -0.02em; color: var(--blue);
 }
-html[data-mlp] .ticker dt.word { font-size: 28px; }
+html[data-mlp] .ticker dt.word { font-size: 28px; padding-bottom: 3px; }
 html[data-mlp] .ticker dd { margin-top: 8px; font-size: 13px; color: var(--blue-56); }
 
 /* ── 5. 分区 ─────────────────────────────────────── */
@@ -702,7 +705,8 @@ html[data-mlp] .empty { padding: 44px 12px; font-size: 14px; color: var(--blue-5
   html[data-mlp] .ticker { grid-template-columns: 1fr 1fr; }
   html[data-mlp] .ticker > div { padding: 18px 16px 18px 0; }
   html[data-mlp] .ticker > div:nth-child(3) { border-left: 0; padding-left: 0; }
-  html[data-mlp] .ticker dt { font-size: 32px; }
+  html[data-mlp] .ticker dt { font-size: 32px; height: 33px; }
+  html[data-mlp] .ticker dt.word { font-size: 22px; padding-bottom: 2px; }
   html[data-mlp] .boards, html[data-mlp] .sources, html[data-mlp] .roadmap { padding-top: 64px; }
   html[data-mlp] .bhead-in { padding: 32px 0 18px; }
   html[data-mlp] .kpis { grid-template-columns: 1fr 1fr; }
