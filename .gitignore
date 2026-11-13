@@ -17,4 +17,19 @@ Thumbs.db
 .vscode/
 
 # 说明：web/data/*.js 是 build_data.py 生成的，但刻意提交进仓库——
-# 源库不在这个项目里，只有带上数据，「clone 下来就能跑」才成立。
+# 站点是纯静态托管，数据必须跟着代码走，「clone 下来就能跑」才成立。
+
+# data/ = 数据库目录：只有建表语句进 git，库文件、备份、上传中转都不进。
+# （库是资产，但该备份到 data/backup/ 或对象存储，不是塞进代码仓库）
+data/*
+!data/schema.sql
+
+# 采集器产物（缓存与临时库）
+collectors/*/data/
+*.db
+*.db-wal
+*.db-shm
+
+
+# 本地密钥（GITHUB_TOKEN 等）
+.env

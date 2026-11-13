@@ -1,0 +1,75 @@
+name: Bug 报告
+description: 页面显示不对、数据不对、脚本报错
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量把信息填全，能省掉好几轮来回。
+
+        ⚠️ **安全漏洞请不要用这个模板**，见 [SECURITY.md](../blob/main/SECURITY.md)。
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 出问题的部分
+      options:
+        - 页面显示（样式/布局/交互）
+        - 数据不对（数字、筛选、排序、导出）
+        - 采集（抓不到、抓错、失败）
+        - 数据后台 /admin
+        - 文档 /docs
+        - 脚本或部署
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 一句话说清楚现象
+      placeholder: 招标页搜索「司法辅助」，结果数为 0，但数据里明明有
+    validations:
+      required: true
+
+  - type: textarea
+    id: expect
+    attributes:
+      label: 你期望的结果
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开 /tender.html
+        2. 搜索框输入 xxx
+        3. 看到 ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / 提交号
+      placeholder: git rev-parse --short HEAD 的输出
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: 运行方式
+      options:
+        - python main.py（本机）
+        - python main.py（服务器 / systemd）
+        - 纯静态托管（只部署 web/）
+        - 其他
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 报错或日志
+      description: 采集相关请附 `python scripts/manage.py failures` 的输出
+      render: shell

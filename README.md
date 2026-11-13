@@ -1,5 +1,10 @@
 # Lexify
 
+[![CI](https://github.com/bytemineur/lexify/actions/workflows/ci.yml/badge.svg)](https://github.com/bytemineur/lexify/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1434CB.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-1434CB.svg)](https://www.python.org)
+[![No build step](https://img.shields.io/badge/build-none-1434CB.svg)](#技术栈)
+
 **法律数据洞察平台**。把散落在法院公告网、公共资源交易平台上的公开信息，拆成可筛选的字段，还原成一张**法律服务需求地图**：谁在打官司、标的多少、谁在花钱买法律服务。
 
 三个看板分别对应需求的不同阶段：**招标雷达**是已经标价的需求（谁在采购、预算多少），**开庭公告**是还没人替它说出口的需求（谁刚被起诉、还没请律师），**执行悬赏**是需求的下游（钱在执行阶段卡住了）。
@@ -16,13 +21,15 @@
 
 | 看板 | 数据量 | 回答的问题 | 关键字段 |
 |---|---|---|---|
-| 招标雷达 `tender.html` | 1,071 条 | 哪些法律服务采购还在投标期内 | 预算、投标截止、采购人、行业、地区 |
-| 开庭公告 `hearing.html` | 5,278 条 | 哪个企业刚收到传票、还没委托律师 | 开庭时间、被告类型、案由、涉案金额、法院 |
-| 执行悬赏 `bounty.html` | 951 条 | 哪个被执行人值得提供线索 | 执行标的、悬赏比例、预估赏金、有效期 |
+| 招标雷达 `tender.html` | 188 条 | 哪些法律服务采购还在投标期内 | 预算、投标截止、采购人、行业、地区 |
+| 开庭公告 `hearing.html` | 5,290 条 | 哪个企业刚收到传票、还没委托律师 | 开庭时间、被告类型、案由、涉案金额、法院 |
+| 执行悬赏 `bounty.html` | 952 条 | 哪个被执行人值得提供线索 | 执行标的、悬赏比例、预估赏金、有效期 |
 
-首页 `index.html` 汇总三者：7,300 条结构化公告、477 家法院与采购机构、31 个省级行政区。**首页所有数字都由 `web/data/overview.js` 驱动**，不在 HTML 里写死，数据更新后文案不会对不上。
+> 上表是当前库的规模，**每天采集后会变**。首页的汇总数字同理，以页面实际显示为准。
 
-三块看板共用同一套交互：左侧筛选（多选 / 日期预设 / 金额区间）、表头排序、关键词搜索（含公告正文）、分页、右侧分布面板与快捷口径、详情弹窗、CSV 导出。千禧年改版后只保留浅色一套皮肤（电光蓝 `#1434CB` 单色、衬线标题、方角与 1px 蓝线），原先的深浅色切换已撤掉。
+首页 `index.html` 汇总三者：6,430 条结构化公告、487 家法院与采购机构、31 个省级行政区。**首页所有数字都由 `web/data/overview.js` 驱动**，不在 HTML 里写死，数据更新后文案不会对不上。
+
+三块看板共用同一套交互：左侧筛选（多选 / 日期预设 / 金额区间）、表头排序、关键词搜索（含公告正文）、分页、右侧分布面板与快捷口径、详情弹窗、CSV 导出。界面固定浅色（早期版本做过深色主题，为了减少视觉负担已移除）。
 
 ---
 
@@ -35,38 +42,29 @@ lexify/
 │  ├─ tender.html           # 三个看板页：外壳完全一致，差别只在 LexBoard({...}) 配置
 │  ├─ hearing.html
 │  ├─ bounty.html
-│  ├─ style.css             # 基础设计系统（tokens、布局、首页）
+│  ├─ style.css             # 设计系统（tokens、主题、首页）
 │  ├─ board.css             # 看板页专用（KPI、筛选器、表格、侧栏、弹窗）
-│  ├─ millennium.css        # 当前生效的皮肤：电光蓝单色 + 衬线标题 + 方角
-│  ├─ editorial.css  linear.css  openai.css  quiet.css  tech.css  terminal.css
-│  │                        # 上面六套是备选皮肤，未在页面里引用，换肤时改 link 即可
 │  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、首屏真实记录预览、导航高亮
 │  ├─ board.js              # 看板引擎：筛选 / 排序 / 分页 / 渲染 / 导出，配置驱动
-│  ├─ field-curtain.js      # 首页首屏帘子动效；field.svg 是无 JS 时的静态兜底
-│  ├─ field-flow.js  field-ripple.js  field-slice.js  field-universe.js
-│  │                        # 另外四套动效，同样备用
-│  ├─ fonts/                # 本地字体（Instrument Sans 在用，其余随备选皮肤备用）
-│  ├─ brand/                # 字标 SVG / PNG
-│  ├─ favicon-32.png  favicon-64.png
-│  └─ data/                 # 由 scripts/build_data.py 生成，不要手改
+│  └─ data/                 # 由 manage.py 从库里导出，不要手改
 │     ├─ tender.js  hearing.js  bounty.js
 │     └─ overview.js
-├─ docs/                    # README 顶部四张截图（1440×900，浅色）
+├─ docs/                    # 说明文档 + 设计资源（docs/assets/）
+├─ data/                    # data/schema.sql 进 git；data/lexify.db 不进
+├─ collectors/              # 采集器：tender-radar（招标）/ bounty-radar（法院两块）
 ├─ scripts/
-│  └─ build_data.py         # 从两个 SQLite 源库导出上面 4 个文件
+│  ├─ manage.py             # 数据命令：crawl / add / build / push / update / stats / failures
+│  ├─ build_data.py         # 库 → web/data 下 4 个文件（由 manage.py 调用）
+│  └─ publish_data.py       # 数据有实质变化才推送 GitHub（由 manage.py 调用）
 ├─ tests/
 │  ├─ test_static.py        # 静态自检 86 项：离线自洽、链接、数据一致性、类名不撞车
 │  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
-├─ Dockerfile
-├─ docker-compose.yml
-└─ docker/
-   └─ nginx.conf            # gzip、缓存分档、安全头
+├─ main.py                  # 唯一入口：站点 + 管理后台 + 定时更新
+└─ requirements.txt         # 采集依赖（不跑采集不用装）
 ```
 
 `web/` 不依赖任何 CDN、外部字体或构建工具，双击 `index.html` 也能跑（`file://` 下同样可用，数据以 `window.__BOARD__ = {...}` 的形式加载，不走 `fetch`）。
-
-字体走本地 `fonts/`，不引 Google Fonts：内网部署和 `file://` 打开都不会因为拉不到字体而掉版。备选皮肤与动效文件（六套 CSS + 四套 `field-*.js`，合计约 1 MB）留在仓库里只为换肤方便，页面不引用、不加载。
 
 ---
 
@@ -78,41 +76,39 @@ python -m http.server 8899 --directory web
 # 打开 http://127.0.0.1:8899/
 ```
 
-重新导出数据（源库有更新时）：
+数据只有一份：`data/lexify.db`。网页读的 `web/data/*.js` 是它导出的快照。
 
 ```bash
-python scripts/build_data.py
-# 或指定源库路径
-python scripts/build_data.py --tender-db /path/tender.db --court-db /path/bounty.db
+python scripts/manage.py crawl            # 三块一起采 → 去重入库 → 自动重新导出
+python scripts/manage.py add 新数据.db    # 外部数据入库（去重）+ 自动重新导出
+python scripts/manage.py stats            # 看库里有什么
+python scripts/manage.py failures         # 看采集/导入失败记录
 ```
 
-两个源库按下面的顺序查找，一条都不用改代码：
+库路径默认 `data/lexify.db`，可用环境变量 `LEXIFY_DB` 改。
 
-1. 命令行参数 `--tender-db` / `--court-db`
-2. 环境变量 `LEXIFY_TENDER_DB` / `LEXIFY_COURT_DB`
-3. 与 `lexify/` 同级的 `tender-radar/data/tender.db`、`bounty-radar/data/bounty.db`
-4. 本机常见位置：`~/Desktop` 与 `~/WorkBuddy/*` 下的同名 `*-radar/data/*.db`
+采集依赖（只在跑 crawl 时需要）：
 
-开庭与悬赏共用 `bounty.db`。找不到库时脚本直接报出期望路径并退出，不会导出空数据。
+```bash
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
 
 ---
 
 ## 数据怎么来
 
-Lexify **不碰采集，也不改源库**。它只做「读 → 归一 → 写 JS」：
+采集器在 `collectors/` 里，两个来源项目已经并进来（不再依赖外部仓库）。
 
 ```
-tender.db ─┐
-           ├─ build_data.py ─→ web/data/*.js ─→ 浏览器
-bounty.db ─┘   (只读)
+manage.py crawl
+   ├─ collectors/tender  ─┐
+   └─ collectors/court   ─┴─→ data/lexify.db（直接写，去重靠唯一键）
+                                    │
+                                    ▼ build
+                            web/data/*.js
 ```
 
-两个源项目保持独立：
-
-- 招标：[bytemineur/tender-radar](https://github.com/bytemineur/tender-radar)
-- 法院两块：bounty-radar（开庭传票 + 执行悬赏同一套采集器）
-
-法院数据的覆盖范围（都在 bounty-radar 里配置）：
+法院数据的覆盖范围：
 
 | 区域 | 法院 | 来源 |
 |---|---|---|
@@ -124,7 +120,7 @@ bounty.db ─┘   (只读)
 
 导出时做了几件必要的事：
 
-1. **招标去重**：只取 `is_primary IS NOT 0 OR cluster_id IS NULL`，把同一条公告的多次转载收敛成一条（1,489 → 1,071）。
+1. **招标去重**：只取 `is_primary IS NOT 0 OR cluster_id IS NULL`，把同一条公告的多次转载收敛成一条（例：库里 223 条 → 页面 188 条）。
 2. **省份归一**：招标记「吉林」、法院记「吉林省」，不归一化会把同一个省算成两个（曾经算出 61 个省）。`norm_prov()` 统一剥掉 省 / 市 / 自治区 后缀。
 3. **正文快照**：`content` 全文最多保留 8,000 字，随数据一起下发。这样点开详情看的是本地快照，不依赖源站能不能打开。
 4. **天数重算**：`days` 不落库，页面加载时用 `daysFrom()` 现算，避免数据放几天后「还剩 3 天」变成错的。
@@ -255,63 +251,40 @@ python tests/run_ui_test.py bounty   # 只跑一块
 
 ## 部署
 
-**部署到服务器（域名、HTTPS、反代、备案、运维自检）的完整步骤见 [docs/DEPLOY.md](docs/DEPLOY.md)。** 下面是本机两种起法的对比。
+**一个 Python 进程，没有 Docker，没有 nginx。** `main.py` 同时做三件事：发静态站点、提供管理后台、按点跑数据更新。
 
-两种起法，都实测过：
+```bash
+python3 scripts/manage.py init         # 第一次：建库（不建也行，add 会自动建）
+python3 main.py                  # → http://<服务器>:8000/
+```
 
-| 方式 | 命令 | 适用 |
-|---|---|---|
-| Python 静态服务 | `python -m http.server 8899 --directory web` → `http://127.0.0.1:8899` | 本地改页面、给同事看一眼 |
-| Docker | `docker compose up -d --build` → `http://127.0.0.1:8080` | 常驻，放到 VPS 上对内或对外提供服务 |
+| 地址 | 是什么 |
+|---|---|
+| `http://<服务器>:8000/` | 站点 |
+| `http://127.0.0.1:8000/admin` | 管理后台（默认只允许本机） |
 
-### 实测对比
+常用参数：`--port` / `--at 00:30` / `--no-schedule` / `--admin-only` / `--run-now`。
+常驻用 systemd，写法见 [`docs/DEPLOY.md`](docs/DEPLOY.md)。
 
-测的是最重的一页 `hearing.html`（数据 7.3 MB，加载完渲染 20 行表格），两种方式页面内容与交互完全一致，均无 console 报错：
+### 为什么不再需要反代
 
-| 指标 | Python `http.server` | Docker `nginx:alpine` |
-|---|---|---|
-| 本机环回加载 | 437 ms | 528 ms |
-| 实际传输字节 | 7,362,031（不压缩） | 1,066,868（gzip 后 14.5%） |
-| 限速 16 Mbps | 3.55 s | 0.49 s |
-| 限速 4 Mbps | 13.96 s | 2.06 s |
-| 限速 2 Mbps | 28.33 s | 4.11 s |
-| 并发 100 请求 | 0.58 s / 171 QPS | 0.17 s / 578 QPS |
-| 缓存头 | 无 | `data/` 走 `no-cache`，css/js 1 小时，图片 7 天 |
-| 安全头 | 无 | nosniff / SAMEORIGIN / strict-origin-when-cross-origin |
-| 访问 `/data/` | 直接列出文件名 | 403 |
-| 不存在的路径 | 带目录列表的 404 | 干净 404 |
+`main.py` 自带 gzip，压缩结果按文件修改时间缓存在内存里。实测最重的一页（`hearing.html`，数据 7.3 MB）：
 
-本机环回上 Docker 反而慢 90 ms —— 环回带宽无限，gzip 压 7 MB 的 CPU 开销换不来传输时间的节省。但真实链路上压缩比是 7:1，7 MB 变 1 MB，20 Mbps 以下全是 7 倍差距。
+| 指标 | 数值 |
+|---|---|
+| 原始传输 | 7,362,031 B |
+| gzip 后 | 1,024,273 B（14%） |
 
-结论：**本地看页面用 Python 起更快，真要部署用 Docker。**
-
-`nginx.conf` 里的缓存策略用一张 `map` 出值、`add_header` 只在 server 级写一次。原因见文件内注释：`add_header` 只要在 location 块里出现，该块就不再继承 server 级的头 —— 早先逐 location 写 `Cache-Control` 的版本，`/data/*.js` 与 `*.css` 的响应把三个安全头整块丢了。
+小团队够用。要域名或 HTTPS 就在前面挂 Caddy / nginx，`main.py` 不用改。
 
 ### 数据更新
 
-数据是 `COPY web/` 打进镜像的，**`docker compose restart` 不会重新读宿主机的 `web/data`**。实测：宿主机新增一个数据文件后 restart，容器内仍是旧内容（404）。要么重建，要么挂卷：
+数据既不在镜像里，也不在构建产物里：**库是唯一事实源，`web/data/*.js` 是导出结果。**
 
-```bash
-python scripts/build_data.py
-docker compose up -d --build      # 重建，约 10 秒（基础层有缓存）
-```
+- 定时：`main.py --at 00:30`；进程重启发现今天该跑没跑，会补跑一次
+- 手动：`/admin` 上的两个按钮，或 `python3 scripts/manage.py update`
 
-想省掉每次重建，把 `docker-compose.yml` 里的 volume 注释打开。**挂 `./web` 整目录，不要只挂 `data`**——只挂 data 的话改过 `board.js` / `board.css` 不会进容器：
-
-```yaml
-volumes:
-  - ./web:/usr/share/nginx/html:ro
-```
-
-挂载后 `build_data.py` 一跑完刷新浏览器就是新数据，连 restart 都不用（Docker Desktop on Windows 上同样可用，已实测）。
-
-### 其他
-
-镜像只是 `nginx:alpine` 加上 `web/`，没有构建步骤，首次构建约 10 秒。也可以直接把 `web/` 丢到任意静态托管（OSS / Cloudflare Pages / Vercel / GitHub Pages），不需要 Node、不需要后端。
-
-gzip 目前是动态压缩（每次请求现压，7 MB 那次约 180 ms CPU）。访问量起来后可以在构建阶段预生成 `.gz` 并开 `gzip_static`，或者干脆把数据拆成按省份分包，只下发首屏要用的那一份。
-
----
+导出完浏览器刷新即可，**不需要重启进程**。
 
 ## 已知边界
 
@@ -333,3 +306,32 @@ gzip 目前是动态压缩（每次请求现压，7 MB 那次约 180 ms CPU）�
 | 破产清算 | 规划中 | 全国企业破产重整案件信息网 |
 
 新增看板的步骤见上文「新增一个看板」——一份数据 + 一份配置。
+
+---
+
+## 开发
+
+```bash
+python main.py                    # 起服务（站点 + /admin + 定时）
+python scripts/manage.py crawl    # 采集
+python tests/test_static.py       # 静态自检 86 项（CI 跑这个）
+python tests/run_ui_test.py       # 交互回归 175 项（需 Chrome/Edge）
+```
+
+贡献前请先看 [CONTRIBUTING.md](CONTRIBUTING.md)，其中写了目录约定、加看板/修采集源的步骤和提交规范。
+参与即视为同意 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
+
+## 安全
+
+漏洞请走 GitHub 的私密报告，**不要开公开 issue**。部署自查清单见 [SECURITY.md](SECURITY.md)。
+
+## 许可证
+
+代码以 [MIT](LICENSE) 发布。
+
+`web/data/` 下的公告数据来自各法院与采购平台的公开发布信息，权利归原发布机构，
+使用时应遵守来源站点的访问限制与相关法律法规。
+
+## 更新日志
+
+见 [CHANGELOG.md](CHANGELOG.md)。

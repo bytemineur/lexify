@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用文档
+    url: https://github.com/bytemineur/lexify/tree/main/docs
+    about: 架构、数据库结构、部署方式都在这三篇里
+  - name: 安全问题（私密报告）
+    url: https://github.com/bytemineur/lexify/security/advisories/new
+    about: 不要开公开 issue

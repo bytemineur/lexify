@@ -1,0 +1,18 @@
+# Lexify 依赖：一条命令装完
+#
+#   pip install -r requirements.txt
+#   （国内加镜像：-i https://pypi.tuna.tsinghua.edu.cn/simple）
+#
+# 只有「采集」需要这些；站点、后台、导入、导出全是标准库，不装也能跑。
+
+# 招标采集
+sqlalchemy>=2.0.30
+httpx>=0.27.0
+parsel>=1.9.0
+pyyaml>=6.0.1
+python-dateutil>=2.9.0
+
+# 4 个有 WAF 的站点（含中国政府采购网）需要真浏览器
+playwright>=1.44.0
+
+# 法院两块（bounty-radar）用标准库，不需要额外依赖。

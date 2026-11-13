@@ -1,0 +1,41 @@
+name: 功能建议
+description: 想要新看板、新字段、新交互
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题
+      description: 先说场景，再说方案。最好的建议是「因为我现在要 X，所以需要 Y」
+      placeholder: 我想按「被告行业」筛开庭公告，现在只能按案由筛
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你设想的做法
+
+  - type: textarea
+    id: alt
+    attributes:
+      label: 考虑过的替代方案
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 大致工作量
+      options:
+        - 小（改文案 / 样式 / 一个筛选条件）
+        - 中（加一个字段或一个视图）
+        - 大（新增看板 / 改数据模型）
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认
+      options:
+        - label: 我确认这不是已有功能（已看过 /docs 与 README）
+          required: true
+        - label: 我愿意自己提 PR

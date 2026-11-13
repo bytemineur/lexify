@@ -526,11 +526,20 @@ html[data-mlp] .sel:focus { border-color: var(--blue); outline: 0; box-shadow: n
 /* ── 9. 工具栏 ─────────────────────────────────── */
 html[data-mlp] .toolbar { gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--blue-18); }
 html[data-mlp] .tsearch {
-  flex: 1 1 280px; height: 38px; padding: 0 4px 0 12px;
+  position: relative;
+  flex: 1 1 280px; height: 38px; padding: 0 12px 0 34px;
   border: 1px solid var(--blue-18); border-radius: 0; background: #fff;
 }
-html[data-mlp] .tsearch input { font-size: 15px; color: var(--blue); }
-html[data-mlp] .tsearch svg { color: var(--blue-56); width: 15px; height: 15px; }
+/* board.css 把边框画在 input 上，这里改成画在 .tsearch 上，
+   否则出现「框套框」。input 自己只负责文字。 */
+html[data-mlp] .tsearch input {
+  width: 100%; height: 100%; padding: 0;
+  border: 0; border-radius: 0; background: none; box-shadow: none;
+  font-size: 15px; color: var(--blue); outline: 0;
+}
+html[data-mlp] .tsearch input:focus { border: 0; box-shadow: none; }
+html[data-mlp] .tsearch input::placeholder { color: var(--blue-56); }
+html[data-mlp] .tsearch svg { left: 12px; color: var(--blue-56); width: 15px; height: 15px; }
 html[data-mlp] .tsearch:focus-within { border-color: var(--blue); }
 html[data-mlp] .tcount { font-size: 13px; color: var(--blue-56); }
 html[data-mlp] .tcount b { color: var(--blue); font-weight: 600; }
@@ -583,10 +592,9 @@ html[data-mlp] .tag.hot { color: var(--danger); border-color: rgba(179, 38, 30, 
 html[data-mlp] .tag.warn { color: var(--warn); border-color: rgba(138, 90, 0, .3); }
 html[data-mlp] .tag.ok { color: var(--blue); }
 html[data-mlp] .tag.dim { color: var(--blue-56); }
-/* 上面那条 margin-left 是为了让标签跟前一段文字隔开（如被告名后面的类型）。
+/* 标签的 margin-left 是为了跟前面文字隔开（如被告名后面的类型）。
    但单元格里 tag 是唯一内容时（「类型」列整列都是），左边距纯属吃宽度：
-   800px 窗口下「公开招标」4 字 + 7px 边距正好溢出 3px，被自检的
-   「单元格内容不溢出」抓到。只在非唯一子元素时保留缩进。 */
+   800px 窗口下「公开招标」4 字 + 7px 边距正好溢出 3px。只在非唯一子元素时保留。 */
 html[data-mlp] td > .tag:only-child { margin-left: 0; }
 
 html[data-mlp] .days {

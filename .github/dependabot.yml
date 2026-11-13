@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # 采集依赖（sqlalchemy / httpx / parsel / playwright…）
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      collectors:
+        patterns: ["sqlalchemy", "httpx", "parsel", "pyyaml", "python-dateutil"]
+      browser:
+        patterns: ["playwright"]
+
+  # GitHub Actions 自身
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"

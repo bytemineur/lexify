@@ -1,0 +1,23 @@
+# 统一编辑器风格，避免无意义的 diff
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.py]
+indent_size = 4
+
+[*.md]
+# Markdown 的行尾两个空格表示换行，不能用
+trim_trailing_whitespace = false
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.sql]
+indent_size = 4

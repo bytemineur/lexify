@@ -57,7 +57,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="11" cy="11" r="6.6"/><path d="m16.2 16.2 4.3 4.3"/>
         </svg>
-        <input id="q" type="search" 搜项目名称、采购人、地区或正文… autocomplete="off">
+        <input id="q" type="search" placeholder="搜项目名称、采购人、地区或正文…" autocomplete="off">
       </div>
       <span class="tcount" id="tcount"></span>
       <button class="btn-sm" id="btnReset">清空筛选</button>
@@ -215,7 +215,7 @@
         csvVal: function (r) { return (r.due || "") + " " + (r.dueRaw || ""); }
       },
       {
-        key: "type", label: "类型", w: "15%",
+        key: "type", label: "类型", w: "13%",
         render: function (r) {
           return '<span class="tag mc">' + esc(r.type || "—") + "</span>";
         }

@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""把三个看板的数据源统一导出成前端可直接加载的 JS。
+"""把统一库 data/lexify.db 导出成前端可直接加载的 JS。
 
-数据来源各自独立（招标在 tender-radar，法院两块在 bounty-radar 的库里），
-这里只做「读 → 归一 → 写 web/data/*.js」，不改动源库。
+Lexify 只认这一个库。数据从哪来（自己的采集项目、别人给的库、后台传的文件）
+它不关心，只做「读 → 归一 → 写 web/data/*.js」，不改动库。
 
 用法：
-    python scripts/build_data.py
-    python scripts/build_data.py --tender-db /path/tender.db --court-db /path/bounty.db
+    python scripts/build_data.py                      # 读 data/lexify.db
+    python scripts/build_data.py --db /path/x.db      # 指定别的库
+    python scripts/build_data.py --out /tmp/check     # 导到别处（不覆盖线上）
 """
 import argparse
-import glob
 import json
 import os
 import sqlite3
@@ -18,37 +18,8 @@ from datetime import date, datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "web", "data")
-HOME = os.path.expanduser("~")
+DEFAULT_DB = os.environ.get("LEXIFY_DB") or os.path.join(ROOT, "data", "lexify.db")
 
-
-def _first_existing(paths):
-    """按顺序找第一个存在的库，全都不在就返回第一项（交给调用方报错）。
-
-    不写死本机绝对路径：开源仓库里不该出现某个人的目录结构。
-    查找顺序 = 环境变量 → 同级克隆目录 → 常见存放位置。
-    """
-    for p in paths:
-        if p and os.path.exists(p):
-            return p
-    return paths[0]
-
-
-def _newest(pattern):
-    hits = glob.glob(pattern)
-    return max(hits, key=os.path.getmtime) if hits else None
-
-
-DEFAULT_TENDER_DB = _first_existing([
-    os.environ.get("LEXIFY_TENDER_DB"),
-    os.path.join(ROOT, "..", "tender-radar", "data", "tender.db"),
-    os.path.join(HOME, "Desktop", "tender-radar", "data", "tender.db"),
-])
-DEFAULT_COURT_DB = _first_existing([
-    os.environ.get("LEXIFY_COURT_DB"),
-    os.path.join(ROOT, "..", "bounty-radar", "data", "bounty.db"),
-    _newest(os.path.join(HOME, "WorkBuddy", "*", "bounty-radar", "data", "bounty.db")),
-    _newest(os.path.join(HOME, "Desktop", "*", "bounty-radar", "data", "bounty.db")),
-])
 
 BODY_LIMIT = 8000
 
@@ -336,24 +307,22 @@ def pick_sample(hearing, limit=3):
 
 
 def main():
+    global OUT_DIR
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tender-db", default=DEFAULT_TENDER_DB)
-    ap.add_argument("--court-db", default=DEFAULT_COURT_DB)
+    ap.add_argument("--db", default=DEFAULT_DB, help="统一库路径，默认 data/lexify.db")
+    ap.add_argument("--out", default=OUT_DIR, help="导出目录，默认 web/data（测试时可指到别处）")
     args = ap.parse_args()
+    OUT_DIR = args.out
+    db_path = args.db
 
-    for label, path in (("招标库", args.tender_db), ("法院库", args.court_db)):
-        if not os.path.exists(path):
-            sys.exit(
-                f"找不到{label}：{path}\n"
-                "用 --tender-db / --court-db 指定，"
-                "或设置环境变量 LEXIFY_TENDER_DB / LEXIFY_COURT_DB。"
-            )
+    if not os.path.exists(db_path):
+        sys.exit("找不到库：%s\n用 --db 指定，或设置环境变量 LEXIFY_DB。" % db_path)
 
     print("导出看板数据：")
     boards = {
-        "tender": build_tender(args.tender_db),
-        "hearing": build_hearing(args.court_db),
-        "bounty": build_bounty(args.court_db),
+        "tender": build_tender(db_path),
+        "hearing": build_hearing(db_path),
+        "bounty": build_bounty(db_path),
     }
     all_provs = set()
     for b in boards.values():

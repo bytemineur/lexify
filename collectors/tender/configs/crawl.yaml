@@ -1,0 +1,24 @@
+# 招标采集器的全局参数（不是站点规则；站点规则在 configs/sites/*.yaml）
+# 环境变量优先级高于本文件。
+
+app_name: 招标雷达
+
+# 库路径留空即可：由 manage.py 通过 TR_DATABASE_URL 指到 data/lexify.db
+database_url: ""
+
+# 只抓和「法律服务」相关的公告
+watch_keywords:
+  - 法律服务
+  - 法律顾问
+  - 诉讼代理
+  - 法律援助
+  - 合规
+
+crawl:
+  min_delay: 2.0           # 随机间隔下限（秒），不要低于 1
+  max_delay: 5.0
+  timeout: 25.0
+  max_retries: 3           # 指数退避 1s / 4s / 16s
+  max_pages: 5
+  browser_fallback: true   # HTTPX 失败时降级 Playwright（需安装）
+  llm_fallback: false      # 规则抽不到时用 LLM 兜底（需配置 API）
