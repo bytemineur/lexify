@@ -13,6 +13,6 @@ pyyaml>=6.0.1
 python-dateutil>=2.9.0
 
 # 4 个有 WAF 的站点（含中国政府采购网）需要真浏览器
-playwright>=1.44.0
+playwright>=1.65.0
 
 # 法院两块（bounty-radar）用标准库，不需要额外依赖。
