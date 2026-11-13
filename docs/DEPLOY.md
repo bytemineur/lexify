@@ -20,6 +20,68 @@ docker compose version           # 需要 v2，即 docker compose 而不是 dock
 sudo ufw allow 80,443/tcp
 ```
 
+### 0.1 拉不到镜像（国内机器的必踩项）
+
+`docker compose up -d --build` 报：
+
+```
+failed to resolve source metadata for docker.io/library/nginx:alpine:
+  dial tcp 157.240.6.35:443: connect: connection refused
+```
+
+**这是 DNS 污染，不是防火墙。** `157.240.x.x` 是 Facebook 的网段，`registry-1.docker.io` 被解析到了那里，所以连不上——放行 443、关 ufw 都没用。改镜像加速：
+
+```bash
+sudo mkdir -p /etc/docker
+sudo cat /etc/docker/daemon.json 2>/dev/null   # 先看有没有旧内容，别直接覆盖
+sudo tee /etc/docker/daemon.json >/dev/null <<'EOF'
+{
+  "registry-mirrors": [
+    "https://mirror.ccs.tencentyun.com",
+    "https://docker.m.daocloud.io",
+    "https://docker.1ms.run"
+  ]
+}
+EOF
+sudo systemctl daemon-reload && sudo systemctl restart docker
+
+docker info | grep -A4 "Registry Mirrors"     # 确认列表已生效
+docker pull nginx:alpine                      # 能 pull 完就通了
+```
+
+源的选择（2026-11 实测状态）：
+
+| 源 | 地址 | 说明 |
+|---|---|---|
+| 腾讯云内网 | `https://mirror.ccs.tencentyun.com` | **腾讯云 CVM / 轻量首选**，走内网不计流量，公网访问无效 |
+| 阿里云内网 | `https://xxx.mirror.aliyuncs.com` | 阿里云 ECS 用，地址按账号在控制台取；非 ECS 返回 403 |
+| DaoCloud | `https://docker.m.daocloud.io` | 社区维护，跨云可用，适合兜底 |
+| 1ms / 1Panel | `https://docker.1ms.run`、`https://docker.1panel.live` | 社区源，时好时坏 |
+| ~~中科大 / 网易~~ | ~~`docker.mirrors.ustc.edu.cn`~~、~~`hub-mirror.c.163.com`~~ | **已停服**，配了只会拖慢，见到就删 |
+
+三个都拉不动就走 §1.B 的离线镜像，那条路完全不碰 registry。也可以直接跳过 Docker 用系统 nginx：
+
+```bash
+sudo apt install -y nginx
+sudo rsync -a --delete web/ /usr/share/nginx/html/
+sudo cp docker/nginx.conf /etc/nginx/conf.d/lexify.conf   # 里面有 map，得放 http 块内
+```
+
+纯静态站这样跑最省事，代价是没有 `restart: unless-stopped` 那种自愈能力。
+
+### 0.2 `permission denied ... /var/run/docker.sock`
+
+当前用户不在 `docker` 组里。`usermod` 之后**必须重新登录 SSH**（`newgrp docker` 只对当前 shell 生效，换个终端又没了）：
+
+```bash
+sudo usermod -aG docker $USER
+# 断开重连，然后
+groups | grep docker
+docker ps
+```
+
+没耐心重登就继续用 `sudo docker ...`，效果一样。
+
 ---
 
 ## 1. 把代码送到服务器
@@ -47,16 +109,19 @@ sudo mkdir -p /opt/lexify && sudo tar xzf /opt/lexify.tgz -C /opt/lexify
 把本机已经跑通的镜像直接搬过去，服务器只负责运行：
 
 ```bash
-# 本地
-docker save lexify:latest | gzip > lexify-image.tgz
-scp lexify-image.tgz root@你的服务器:/opt/
+# 本地（28 MB 左右，nginx 层和 web/ 都在里面）
+docker save lexify:latest | gzip -1 > lexify-image.tgz
+scp lexify-image.tgz ubuntu@你的服务器:/opt/
 
 # 服务器
-gunzip -c /opt/lexify-image.tgz | docker load
-docker images | grep lexify        # 约 109 MB
+gunzip -c /opt/lexify-image.tgz | sudo docker load
+docker images | grep lexify        # 约 111 MB
+cd /opt/lexify && sudo docker compose up -d --no-build
 ```
 
-这种方式服务器上没有源码，以后更新数据得重新 `docker save` 一次；好处是构建环境（GPU、大磁盘）不用跟着上服务器。
+镜像已经躺在本地，`docker load` 之后**必须加 `--no-build`**——不加的话 compose 看到 `build: .` 会再去拉一次 `nginx:alpine`，又卡在 DNS 上。
+
+这种方式服务器上没有源码，以后更新数据得重新 `docker save` 一次；好处是构建环境（GPU、大磁盘）不用跟着上服务器，而且完全绕开 registry。
 
 ---
 
