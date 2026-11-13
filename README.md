@@ -22,7 +22,7 @@
 
 首页 `index.html` 汇总三者：7,300 条结构化公告、477 家法院与采购机构、31 个省级行政区。**首页所有数字都由 `web/data/overview.js` 驱动**，不在 HTML 里写死，数据更新后文案不会对不上。
 
-三块看板共用同一套交互：左侧筛选（多选 / 日期预设 / 金额区间）、表头排序、关键词搜索（含公告正文）、分页、右侧分布面板与快捷口径、详情弹窗、CSV 导出。深色 / 浅色主题跟随系统并可手动切换。
+三块看板共用同一套交互：左侧筛选（多选 / 日期预设 / 金额区间）、表头排序、关键词搜索（含公告正文）、分页、右侧分布面板与快捷口径、详情弹窗、CSV 导出。千禧年改版后只保留浅色一套皮肤（电光蓝 `#1434CB` 单色、衬线标题、方角与 1px 蓝线），原先的深浅色切换已撤掉。
 
 ---
 
@@ -35,14 +35,23 @@ lexify/
 │  ├─ tender.html           # 三个看板页：外壳完全一致，差别只在 LexBoard({...}) 配置
 │  ├─ hearing.html
 │  ├─ bounty.html
-│  ├─ style.css             # 设计系统（tokens、主题、首页）
+│  ├─ style.css             # 基础设计系统（tokens、布局、首页）
 │  ├─ board.css             # 看板页专用（KPI、筛选器、表格、侧栏、弹窗）
+│  ├─ millennium.css        # 当前生效的皮肤：电光蓝单色 + 衬线标题 + 方角
+│  ├─ editorial.css  linear.css  openai.css  quiet.css  tech.css  terminal.css
+│  │                        # 上面六套是备选皮肤，未在页面里引用，换肤时改 link 即可
 │  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、首屏真实记录预览、导航高亮
 │  ├─ board.js              # 看板引擎：筛选 / 排序 / 分页 / 渲染 / 导出，配置驱动
+│  ├─ field-curtain.js      # 首页首屏帘子动效；field.svg 是无 JS 时的静态兜底
+│  ├─ field-flow.js  field-ripple.js  field-slice.js  field-universe.js
+│  │                        # 另外四套动效，同样备用
+│  ├─ fonts/                # 本地字体（Instrument Sans 在用，其余随备选皮肤备用）
+│  ├─ brand/                # 字标 SVG / PNG
+│  ├─ favicon-32.png  favicon-64.png
 │  └─ data/                 # 由 scripts/build_data.py 生成，不要手改
 │     ├─ tender.js  hearing.js  bounty.js
 │     └─ overview.js
-├─ docs/                    # README 顶部四张截图（1440×900，深色主题）
+├─ docs/                    # README 顶部四张截图（1440×900，浅色）
 ├─ scripts/
 │  └─ build_data.py         # 从两个 SQLite 源库导出上面 4 个文件
 ├─ tests/
@@ -56,6 +65,8 @@ lexify/
 ```
 
 `web/` 不依赖任何 CDN、外部字体或构建工具，双击 `index.html` 也能跑（`file://` 下同样可用，数据以 `window.__BOARD__ = {...}` 的形式加载，不走 `fetch`）。
+
+字体走本地 `fonts/`，不引 Google Fonts：内网部署和 `file://` 打开都不会因为拉不到字体而掉版。备选皮肤与动效文件（六套 CSS + 四套 `field-*.js`，合计约 1 MB）留在仓库里只为换肤方便，页面不引用、不加载。
 
 ---
 
@@ -243,6 +254,8 @@ python tests/run_ui_test.py bounty   # 只跑一块
 ---
 
 ## 部署
+
+**部署到服务器（域名、HTTPS、反代、备案、运维自检）的完整步骤见 [docs/DEPLOY.md](docs/DEPLOY.md)。** 下面是本机两种起法的对比。
 
 两种起法，都实测过：
 

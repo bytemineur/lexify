@@ -583,6 +583,11 @@ html[data-mlp] .tag.hot { color: var(--danger); border-color: rgba(179, 38, 30, 
 html[data-mlp] .tag.warn { color: var(--warn); border-color: rgba(138, 90, 0, .3); }
 html[data-mlp] .tag.ok { color: var(--blue); }
 html[data-mlp] .tag.dim { color: var(--blue-56); }
+/* 上面那条 margin-left 是为了让标签跟前一段文字隔开（如被告名后面的类型）。
+   但单元格里 tag 是唯一内容时（「类型」列整列都是），左边距纯属吃宽度：
+   800px 窗口下「公开招标」4 字 + 7px 边距正好溢出 3px，被自检的
+   「单元格内容不溢出」抓到。只在非唯一子元素时保留缩进。 */
+html[data-mlp] td > .tag:only-child { margin-left: 0; }
 
 html[data-mlp] .days {
   display: inline-block; padding: 0; border: 0; background: none;

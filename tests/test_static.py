@@ -9,7 +9,7 @@
     2. 相对链接可达 —— 所有 href/src 指向的文件真实存在
     3. 数据文件格式 —— web/data/*.js 必须是 window.__BOARD__ = {合法 JSON};
     4. 数据自洽 —— 行数 = meta.total，首页汇总 = 三块之和，省份数不越界
-    5. 看板骨架 —— 每页都有三块导航、当前页高亮、首屏不闪主题、必要的 DOM 挂载点
+    5. 看板骨架 —— 每页都有三块导航、当前页高亮、主题声明、必要的 DOM 挂载点
 """
 import json
 import os
@@ -178,7 +178,10 @@ def check_shell(html_files):
         ok("%s 三块导航齐全" % page,
            all(h in s for h in ("tender.html", "hearing.html", "bounty.html")))
         ok("%s 当前页导航高亮" % page, 'data-b="%s" class="on"' % key in s)
-        ok("%s 首屏不闪主题（内联脚本）" % page, "lx-theme" in s and "data-theme" in s)
+        # 千禧年改版后只剩浅色一种主题，切换按钮与首帧防闪脚本一并撤掉；
+        # 断言改为「必须显式声明 light，且不能再残留 lx-theme 的读写」。
+        ok("%s 主题固定为浅色（切换已撤）" % page,
+           'data-theme="light"' in s and "lx-theme" not in s)
         ok("%s 有页面标题" % page, re.search(r"<title>[^<]+</title>", s) and
            "Lexify" in re.search(r"<title>([^<]+)</title>", s).group(1))
         ok("%s 有 meta description" % page, 'name="description"' in s)

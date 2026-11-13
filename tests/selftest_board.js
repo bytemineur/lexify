@@ -50,6 +50,12 @@
   function digits(s) { return String(s).replace(/[^\d.\-]/g, ""); }
 
   async function run() {
+    // 站点用的是本地 ttf，load 事件触发时字体可能还没解码完。不等它就直接
+    // 量列宽，量到的是 fallback 字体的宽度，会把「类型」列误判成溢出几像素。
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (e) {}
+    }
+
     var D = window.__LEX_DEBUG__;
     ok("引擎暴露自测钩子", typeof D === "function");
     if (typeof D !== "function") return;
@@ -94,7 +100,13 @@
       return d.scrollWidth > d.clientWidth + 2;
     });
     ok("单元格内容不溢出", overflow.length === 0,
-       overflow.length + " 个溢出");
+       overflow.length
+         ? overflow.map(function (d) {
+             var th = ths[d.cellIndex];
+             return (th ? th.textContent.trim() : "col" + d.cellIndex) +
+               " " + d.scrollWidth + ">" + d.clientWidth;
+           }).join(", ")
+         : "无");
 
     /* ---------- 1. 多选筛选 ---------- */
     var mf = dbg().fields.filter(function (f) { return f.type === "multi"; })[0];

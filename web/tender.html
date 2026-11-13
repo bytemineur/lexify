@@ -180,7 +180,7 @@
 
     columns: [
       {
-        key: "title", label: "项目 / 采购人", w: "40%",
+        key: "title", label: "项目 / 采购人", w: "38%",
         render: function (r) {
           var sub = r.org || "采购人未披露";
           if (r.agency) sub += " · 代理 " + r.agency;
@@ -215,7 +215,7 @@
         csvVal: function (r) { return (r.due || "") + " " + (r.dueRaw || ""); }
       },
       {
-        key: "type", label: "类型", w: "13%",
+        key: "type", label: "类型", w: "15%",
         render: function (r) {
           return '<span class="tag mc">' + esc(r.type || "—") + "</span>";
         }
