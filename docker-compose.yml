@@ -6,6 +6,7 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
-    # 数据重导后不必重建镜像：把 web/data 挂进来即可
+    # 数据重导后不必重建镜像：挂 web/ 整目录即可热更新。
+    # 注意别只挂 ./web/data —— 改过的 board.js / board.css 就进不去了。
     # volumes:
-    #   - ./web/data:/usr/share/nginx/html/data:ro
+    #   - ./web:/usr/share/nginx/html:ro

@@ -50,7 +50,9 @@ lexify/
 │  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
 ├─ Dockerfile
-└─ docker-compose.yml
+├─ docker-compose.yml
+└─ docker/
+   └─ nginx.conf            # gzip、缓存分档、安全头
 ```
 
 `web/` 不依赖任何 CDN、外部字体或构建工具，双击 `index.html` 也能跑（`file://` 下同样可用，数据以 `window.__BOARD__ = {...}` 的形式加载，不走 `fetch`）。
@@ -242,13 +244,59 @@ python tests/run_ui_test.py bounty   # 只跑一块
 
 ## 部署
 
+两种起法，都实测过：
+
+| 方式 | 命令 | 适用 |
+|---|---|---|
+| Python 静态服务 | `python -m http.server 8899 --directory web` → `http://127.0.0.1:8899` | 本地改页面、给同事看一眼 |
+| Docker | `docker compose up -d --build` → `http://127.0.0.1:8080` | 常驻，放到 VPS 上对内或对外提供服务 |
+
+### 实测对比
+
+测的是最重的一页 `hearing.html`（数据 7.3 MB，加载完渲染 20 行表格），两种方式页面内容与交互完全一致，均无 console 报错：
+
+| 指标 | Python `http.server` | Docker `nginx:alpine` |
+|---|---|---|
+| 本机环回加载 | 437 ms | 528 ms |
+| 实际传输字节 | 7,362,031（不压缩） | 1,066,868（gzip 后 14.5%） |
+| 限速 16 Mbps | 3.55 s | 0.49 s |
+| 限速 4 Mbps | 13.96 s | 2.06 s |
+| 限速 2 Mbps | 28.33 s | 4.11 s |
+| 并发 100 请求 | 0.58 s / 171 QPS | 0.17 s / 578 QPS |
+| 缓存头 | 无 | `data/` 走 `no-cache`，css/js 1 小时，图片 7 天 |
+| 安全头 | 无 | nosniff / SAMEORIGIN / strict-origin-when-cross-origin |
+| 访问 `/data/` | 直接列出文件名 | 403 |
+| 不存在的路径 | 带目录列表的 404 | 干净 404 |
+
+本机环回上 Docker 反而慢 90 ms —— 环回带宽无限，gzip 压 7 MB 的 CPU 开销换不来传输时间的节省。但真实链路上压缩比是 7:1，7 MB 变 1 MB，20 Mbps 以下全是 7 倍差距。
+
+结论：**本地看页面用 Python 起更快，真要部署用 Docker。**
+
+`nginx.conf` 里的缓存策略用一张 `map` 出值、`add_header` 只在 server 级写一次。原因见文件内注释：`add_header` 只要在 location 块里出现，该块就不再继承 server 级的头 —— 早先逐 location 写 `Cache-Control` 的版本，`/data/*.js` 与 `*.css` 的响应把三个安全头整块丢了。
+
+### 数据更新
+
+数据是 `COPY web/` 打进镜像的，**`docker compose restart` 不会重新读宿主机的 `web/data`**。实测：宿主机新增一个数据文件后 restart，容器内仍是旧内容（404）。要么重建，要么挂卷：
+
 ```bash
-docker compose up -d --build      # http://127.0.0.1:8080
+python scripts/build_data.py
+docker compose up -d --build      # 重建，约 10 秒（基础层有缓存）
 ```
 
-镜像只是 `nginx:alpine` 加上 `web/`，没有构建步骤。也可以直接把 `web/` 丢到任意静态托管（OSS / Cloudflare Pages / Vercel / GitHub Pages），不需要 Node、不需要后端。
+想省掉每次重建，把 `docker-compose.yml` 里的 volume 注释打开。**挂 `./web` 整目录，不要只挂 `data`**——只挂 data 的话改过 `board.js` / `board.css` 不会进容器：
 
-数据更新后重新跑 `build_data.py` 再 `docker compose restart` 即可 —— 或者把 `web/data` 挂成 volume，导出完直接生效。
+```yaml
+volumes:
+  - ./web:/usr/share/nginx/html:ro
+```
+
+挂载后 `build_data.py` 一跑完刷新浏览器就是新数据，连 restart 都不用（Docker Desktop on Windows 上同样可用，已实测）。
+
+### 其他
+
+镜像只是 `nginx:alpine` 加上 `web/`，没有构建步骤，首次构建约 10 秒。也可以直接把 `web/` 丢到任意静态托管（OSS / Cloudflare Pages / Vercel / GitHub Pages），不需要 Node、不需要后端。
+
+gzip 目前是动态压缩（每次请求现压，7 MB 那次约 180 ms CPU）。访问量起来后可以在构建阶段预生成 `.gz` 并开 `gzip_static`，或者干脆把数据拆成按省份分包，只下发首屏要用的那一份。
 
 ---
 
