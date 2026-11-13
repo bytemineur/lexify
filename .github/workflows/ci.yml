@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 静态自检
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 检查 Python 语法
+        run: |
+          python -m compileall -q main.py scripts collectors
+
+      - name: 静态自检（83 项）
+        run: python tests/test_static.py
+
+      - name: 数据文件可解析
+        run: |
+          python - <<'PY'
+          import json, re, pathlib
+          for f in pathlib.Path("web/data").glob("*.js"):
+              text = f.read_text(encoding="utf-8")
+              m = re.match(r"^window\.__\w+__ = (.*);\s*$", text, re.S)
+              assert m, f"{f} 结构不对"
+              json.loads(m.group(1))
+              print(f"{f.name} ok")
+          PY

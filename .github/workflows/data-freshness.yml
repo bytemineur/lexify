@@ -1,0 +1,37 @@
+name: 数据新鲜度检查
+
+# 这个 workflow 只做「哨兵」：数据本身由本机（或服务器）上的定时任务生成并推送，
+# 因为两个 SQLite 源库不在仓库里，GitHub 的 runner 上也访问不到国内采集站点。
+# 它每天检查一次 web/data/overview.js 里的 generatedAt，超过 36 小时就报红。
+
+on:
+  schedule:
+    - cron: "0 1 * * *"   # UTC 01:00 = 北京时间 09:00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 比对 generatedAt 与当前时间
+        run: |
+          python3 - <<'PY'
+          import datetime as dt, re, sys
+          text = open("web/data/overview.js", encoding="utf-8").read()
+          m = re.search(r'"generatedAt":"([^"]+)"', text)
+          if not m:
+              print("::error::overview.js 里找不到 generatedAt"); sys.exit(1)
+          # 时间戳按北京时间理解
+          stamp = dt.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M").replace(tzinfo=dt.timezone(dt.timedelta(hours=8)))
+          now = dt.datetime.now(dt.timezone.utc)
+          hours = (now - stamp).total_seconds() / 3600
+          print(f"数据生成于 {m.group(1)}（北京时间），距今 {hours:.1f} 小时")
+          if hours > 36:
+              print("::error::数据已超过 36 小时未更新，检查本机的「Lexify 数据日更」计划任务")
+              sys.exit(1)
+          PY
