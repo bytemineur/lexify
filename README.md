@@ -42,11 +42,15 @@ lexify/
 │  ├─ tender.html           # 三个看板页：外壳完全一致，差别只在 LexBoard({...}) 配置
 │  ├─ hearing.html
 │  ├─ bounty.html
-│  ├─ style.css             # 设计系统（tokens、主题、首页）
+│  ├─ style.css             # 基础设计系统（tokens、布局、首页）
 │  ├─ board.css             # 看板页专用（KPI、筛选器、表格、侧栏、弹窗）
+│  ├─ millennium.css        # 唯一的皮肤：电光蓝单色 + 衬线标题 + 方角 + 1px 发丝线
 │  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、首屏真实记录预览、导航高亮
 │  ├─ board.js              # 看板引擎：筛选 / 排序 / 分页 / 渲染 / 导出，配置驱动
-│  └─ data/                 # 由 manage.py 从库里导出，不要手改
+│  ├─ field-curtain.js      # 首屏帘子动效；field.svg 是无 JS 时的静态兜底
+│  ├─ fonts/                # 自托管字体，不引 Google Fonts
+│  ├─ favicon-32/64.png
+│  └─ data/                 # 由 scripts/manage.py 从库里导出，不要手改
 │     ├─ tender.js  hearing.js  bounty.js
 │     └─ overview.js
 ├─ docs/                    # 说明文档 + 设计资源（docs/assets/）
