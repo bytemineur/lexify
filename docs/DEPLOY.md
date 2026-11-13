@@ -128,17 +128,19 @@ sudo mkdir -p /opt/lexify && sudo tar xzf /opt/lexify.tgz -C /opt/lexify
 把本机已经跑通的镜像直接搬过去，服务器只负责运行：
 
 ```bash
-# 本地（28 MB 左右，nginx 层和 web/ 都在里面）
-docker save lexify:latest | gzip -1 > lexify-image.tgz
+# 本地：把基础镜像一起打进去。两个 tag 共用同一批层，压缩后体积不变（约 28 MB）
+docker save lexify:latest nginx:alpine | gzip -1 > lexify-image.tgz
 scp lexify-image.tgz ubuntu@你的服务器:/opt/
 
 # 服务器
 gunzip -c /opt/lexify-image.tgz | sudo docker load
-docker images | grep lexify        # 约 111 MB
-cd /opt/lexify && sudo docker compose up -d --no-build
+docker images | grep -E "lexify|nginx"     # lexify 111 MB、nginx 94.5 MB
+cd /opt/lexify && sudo docker compose up -d --build
 ```
 
-镜像已经躺在本地，`docker load` 之后**必须加 `--no-build`**——不加的话 compose 看到 `build: .` 会再去拉一次 `nginx:alpine`，又卡在 DNS 上。
+**为什么要把 `nginx:alpine` 也带上**：`docker build` 只有在缺基础镜像时才联网，`FROM` 在本地找得到，`COPY web/` 是纯本地操作，整条构建链路不碰 registry，所以带了基础镜像后 `--build` 可以照常用。
+
+只打了 `lexify:latest` 的话，必须加 `--no-build`——否则 compose 见 `build: .` 会再去拉一次 `nginx:alpine`，又卡在 DNS 上。
 
 这种方式服务器上没有源码，以后更新数据得重新 `docker save` 一次；好处是构建环境（GPU、大磁盘）不用跟着上服务器，而且完全绕开 registry。
 
