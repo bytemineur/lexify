@@ -287,7 +287,7 @@ svg { display: block; }
 /* 左文右证：左边说产品，右边直接摆三条真实记录 */
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
   align-items: center;
   gap: 56px;
   padding: 88px 0 56px;
@@ -295,7 +295,7 @@ svg { display: block; }
 @media (max-width: 1120px) {
   .hero-grid { grid-template-columns: 1fr; gap: 48px; padding: 64px 0 48px; }
   /* 单列时收窄，保持表格该有的比例，别拉成一条长带 */
-  .preview { max-width: 620px; }
+  .preview { max-width: 560px; }
 }
 
 /* 顶部一行状态：纯文字，不做胶囊 */
@@ -390,7 +390,7 @@ svg { display: block; }
 .sb-go:active { transform: scale(.98); }
 
 /* 常用检索：安静的文本链，不做胶囊 */
-.hot {
+.hero-hot {
   display: flex;
   align-items: baseline;
   gap: 4px 12px;
@@ -399,7 +399,7 @@ svg { display: block; }
   font-size: 12px;
   color: var(--text-3);
 }
-.hot button {
+.hero-hot button {
   padding: 0;
   border: 0;
   background: transparent;
@@ -411,7 +411,7 @@ svg { display: block; }
   text-underline-offset: 3px;
   transition: color .14s cubic-bezier(.22,1,.36,1);
 }
-.hot button:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
+.hero-hot button:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
 
 /* ── 首屏右侧：一条真实记录 ─────────────────────── */
 .preview {
@@ -697,7 +697,9 @@ svg { display: block; }
 .card:hover .card-go svg { transform: translateX(2px); }
 
 /* ── 路线图 ─────────────────────────────────────── */
-.soon { padding: 72px 0 8px; }
+/* 类名带模块前缀：.soon 这种裸词会和表格里的「临期」标记、首屏预览的倒计时撞车，
+   之前 .pv-d.soon 就是被这里的 72px 上内边距顶成两行高。 */
+.roadmap { padding: 72px 0 8px; }
 
 .soon-grid {
   display: grid;

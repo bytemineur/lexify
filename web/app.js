@@ -110,18 +110,36 @@
       var d = r.days;
       var when = (r.heaDate || "").slice(5).replace("-", "/");
       var rel = d == null ? "" : (d === 0 ? "今天开庭" : d + " 天后");
-      var sub = [r.court, r.cause].filter(Boolean).join(" · ");
+      var sub = [shortCourt(r.court), r.cause].filter(Boolean).join(" · ");
       var amt = r.amount ? moneyShort(r.amount) : "—";
       return '<div class="pv-row">' +
                '<div class="pv-when">' + esc(when) +
                  '<span class="pv-d' + (d != null && d <= 7 ? " soon" : "") + '">' + esc(rel) + "</span>" +
                "</div>" +
-               '<div class="pv-party">' + esc(clip(r.defendant, 24)) +
-                 '<span class="pv-meta">' + esc(clip(sub, 36)) + "</span>" +
+               '<div class="pv-party">' + esc(partyLabel(r.defendant)) +
+                 '<span class="pv-meta">' + esc(clip(sub, 26)) + "</span>" +
                "</div>" +
                '<div class="pv-amt">' + esc(amt) + "</div>" +
              "</div>";
     }).join("");
+  }
+
+  /* 首屏那三行只交代「谁、在哪、什么事」，一个当事人名就够。
+     多个被告时收成「首被告 等 N 人」，否则一行要塞四五个公司名。 */
+  function partyLabel(s) {
+    s = String(s == null ? "" : s).trim();
+    if (!s) return "被告未披露";
+    var parts = s.split("、");
+    if (parts.length > 1) return clip(parts[0], 16) + " 等 " + parts.length + " 人";
+    return clip(s, 18);
+  }
+
+  /* 法院名收短：省掉「人民法院」这类在上下文里已经自明的字。
+     看板表格里用全称，首屏空间小，只需要认出是哪家法院。 */
+  function shortCourt(s) {
+    s = String(s == null ? "" : s).replace(/^广东省/, "");
+    return s.replace("经济技术开发区人民法院", "经开区法院")
+            .replace(/人民法院$/, "法院");
   }
 
   function moneyShort(v) {
@@ -251,7 +269,7 @@
     var btn = $("btnSearch");
     if (btn) btn.addEventListener("click", function () { openPalette(""); });
 
-    var hots = document.querySelectorAll(".hot button");
+    var hots = document.querySelectorAll(".hero-hot button");
     for (var i = 0; i < hots.length; i++) {
       hots[i].addEventListener("click", function () {
         var q = this.dataset.q;

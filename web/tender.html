@@ -57,11 +57,11 @@
 <div class="bhead">
   <div class="wrap">
     <div class="bhead-in">
-      <div>
-        <h1 id="bTitle"></h1>
+      <h1 id="bTitle"></h1>
+      <div class="bhead-row">
         <p class="sub" id="bSub"></p>
+        <div class="bhead-meta" id="bMeta"></div>
       </div>
-      <div class="bhead-meta" id="bMeta"></div>
     </div>
     <div class="kpis" id="kpis"></div>
   </div>
@@ -145,7 +145,7 @@
   LexBoard({
     title: "招标雷达",
     en: "Tender Radar",
-    tagline: "全国政府采购与公共资源交易平台的公开招标。抽取预算金额与投标截止时间，按截止日排序，先看还来得及投的。",
+    tagline: "全国政府采购与公共资源交易平台的公开招标。按投标截止日排序，先看还来得及投的。",
     dateField: "due",
     amountField: "amount",
     search: ["title", "org", "agency", "cat", "prov", "city", "body"],

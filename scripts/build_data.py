@@ -282,13 +282,14 @@ def pick_sample(hearing, limit=3):
     cand = [
         r for r in hearing["rows"]
         if r["defType"] in ("company", "mixed")
-        and r["defendant"] and len(r["defendant"]) <= 28
+        and r["defendant"] and len(r["defendant"]) <= 20
         and r["heaDate"]
         and r["days"] is not None and r["days"] >= 0
         and r["amount"]
     ]
-    # 优先临近的；被告名已过滤到能在一行里读全，不用再截
-    cand.sort(key=lambda r: (r["days"], -(r["amount"] or 0)))
+    # 优先单被告、临近、带金额：首屏那三行要能一眼读全，
+    # 塞四五个当事人的长名字会把行拉得很宽，还会被截成省略号
+    cand.sort(key=lambda r: ("、" in r["defendant"], r["days"], -(r["amount"] or 0)))
     out = []
     for r in cand:
         out.append({

@@ -57,11 +57,11 @@
 <div class="bhead">
   <div class="wrap">
     <div class="bhead-in">
-      <div>
-        <h1 id="bTitle"></h1>
+      <h1 id="bTitle"></h1>
+      <div class="bhead-row">
         <p class="sub" id="bSub"></p>
+        <div class="bhead-meta" id="bMeta"></div>
       </div>
-      <div class="bhead-meta" id="bMeta"></div>
     </div>
     <div class="kpis" id="kpis"></div>
   </div>
@@ -160,7 +160,7 @@
   LexBoard({
     title: "执行悬赏",
     en: "Bounty Notice",
-    tagline: "法院执行悬赏公告。把「执行标的」「悬赏比例」「封顶金额」拆开算，得到的是真正能拿到手的赏金，不是标的额。",
+    tagline: "把「执行标的」「悬赏比例」「封顶金额」拆开算，得到的才是能到手的赏金，不是标的额。",
     dateField: "pub",
     amountField: "subject",
     search: ["debtor", "court", "caseNo", "body"],

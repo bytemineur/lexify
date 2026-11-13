@@ -65,13 +65,15 @@
 .board-main { padding-bottom: 64px; }
 
 .bhead { border-bottom: 1px solid var(--border); }
-.bhead-in {
+.bhead-in { padding: 32px 0 24px; }
+/* 一句话说明与「更新于 / 数据源」同处一行。
+   用 baseline 对齐：副标换行时，右侧小字仍贴住它的第一行基线，
+   而不是被 flex-end 压到最后一行去（那样会掉在两行中间，看着不齐）。 */
+.bhead-row {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
   gap: 32px;
-  padding: 32px 0 24px;
-  flex-wrap: wrap;
 }
 .bhead h1 {
   display: flex;
@@ -91,17 +93,24 @@
 }
 .bhead p.sub {
   max-width: 640px;
+  min-width: 0;
   font-size: 13px;
   line-height: 1.7;
   color: var(--text-2);
 }
 .bhead-meta {
+  flex: 0 0 auto;
   font-size: 11.5px;
   line-height: 1.7;
   color: var(--text-3);
-  padding-bottom: 2px;
+  white-space: nowrap;
 }
 .bhead-meta b { color: var(--text-2); font-weight: 500; }
+@media (max-width: 900px) {
+  .bhead-row { flex-wrap: wrap; row-gap: 6px; }
+  /* 换到第二行时不再强行单行，并让出满宽换行，否则窄屏直接顶出容器 */
+  .bhead-meta { flex: 1 1 100%; white-space: normal; }
+}
 
 /* ── KPI：一行四个数，不是四张卡 ────────────────── */
 .kpis {

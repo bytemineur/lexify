@@ -205,6 +205,13 @@ def check_shell(html_files):
     # 首屏右侧是真实记录预览，不是装饰图：容器在，数据来自 overview.sample
     ok("首屏有真实记录预览容器", 'id="previewRows"' in idx)
     ok("无装饰性迷你柱图残留", "data-spark=" not in idx)
+    # 类名撞车是本项目反复踩的坑：.hot 撞过 KPI、.soon 撞过路线图区块
+    # （.pv-d.soon 被 72px 上内边距顶成两行高）。状态类必须带模块前缀，
+    # 这里挡住「在 CSS 里重新定义一个裸状态类」这种写法。
+    css = read(os.path.join(WEB, "style.css")) + read(os.path.join(WEB, "board.css"))
+    bare = [n for n in ("soon", "past", "week", "hot", "warn", "money", "accent", "on")
+            if re.search(r"(?m)^\.%s\s*[,{]" % n, css)]
+    ok("无裸状态类定义（状态类必须带前缀）", not bare, ",".join(bare))
 
 
 def main():
