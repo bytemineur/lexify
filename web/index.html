@@ -1,24 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light" data-mlp="1">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lexify · 法律数据洞察平台</title>
 <meta name="description" content="Lexify 是面向律师与律所的法律数据洞察平台：把法院公告、庭审排期与政府采购平台上的公开信息，还原成一张法律服务需求地图——谁在打官司、标的多少、谁在花钱买法律服务。不做案源买卖，只做展业判断的依据。">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230f6e5d'/><g transform='scale(1.3333)'><path d='M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z' fill='white'/></g></svg>">
-<script>
-/* 主题在首帧前定好，避免深色偏好先闪白 */
-(function () {
-  try {
-    var pref = localStorage.getItem("lx-theme") || "dark";
-    var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    var mode = pref === "auto" ? (dark ? "dark" : "light") : pref;
-    document.documentElement.setAttribute("data-theme", mode);
-    document.documentElement.style.colorScheme = mode;
-  } catch (e) {}
-})();
-</script>
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="millennium.css">
 </head>
 <body>
 
@@ -36,7 +26,14 @@
   </a>
 
   <nav class="nav" id="nav">
-    <a href="#boards" class="on">看板</a>
+    <div class="nav-drop">
+      <a href="#boards" class="on" aria-haspopup="true">看板</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="tender.html"><b>招标雷达</b><em>Tender Radar</em></a>
+        <a role="menuitem" href="hearing.html"><b>开庭公告</b><em>Hearing Docket</em></a>
+        <a role="menuitem" href="bounty.html"><b>执行悬赏</b><em>Bounty Notice</em></a>
+      </div>
+    </div>
     <a href="#why">为什么</a>
     <a href="#soon">路线图</a>
     <a href="#sources">数据源</a>
@@ -48,19 +45,7 @@
         <circle cx="11" cy="11" r="6.4"/><path d="m16 16 4.2 4.2"/>
       </svg>
     </button>
-    <div class="seg" id="themeSwitch" role="group" aria-label="主题">
-      <button data-theme="light" title="浅色">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>
-        </svg>
-      </button>
-      <button data-theme="dark" title="深色">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 14.5A8.2 8.2 0 0 1 9.5 4a8.4 8.4 0 1 0 10.5 10.5"/>
-        </svg>
-      </button>
-    </div>
-  </div>
+      </div>
 </header>
 
 <main>
@@ -398,11 +383,15 @@
         <p>法律数据洞察平台</p>
       </div>
     </div>
-    <p class="foot-note">© 2026 Lexify</p>
+    <div class="foot-legal">
+      <p class="foot-note">© 2026 Lexify. All rights reserved.</p>
+      <a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">粤ICP备2026168850号</a>
+    </div>
   </div>
 </footer>
 
 <script src="data/overview.js"></script>
 <script src="app.js"></script>
+<script src="field-curtain.js"></script>
 </body>
 </html>

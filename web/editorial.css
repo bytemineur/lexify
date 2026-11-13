@@ -1,0 +1,812 @@
+/* ============================================================
+   Lexify — 编辑体（editorial.css）
+   ------------------------------------------------------------
+   不是「把网页调成杂志色」，是把这一页当成一册法律评论的
+   一个印张来排：栏目、要目、导语、正文、脚注、版权页。
+
+   三条与前几版根本不同的决定：
+   1. 标题用黑体（现代刊物的封面标题），正文用宋体并首行缩进 2em
+      —— 中文书刊的真实排法，系统里就能拿到，不需要买字体；
+      拉丁与数字用自托管的 Lora（OFL），让数字也有书卷气。
+   2. 结构靠「线」和「留白」分层：三条粗细不同的横线就能切出
+      刊头 / 封面 / 栏目 / 版权页，不用卡片、不用阴影。
+   3. 栏目编号用中文序号（Ⅰ Ⅱ Ⅲ），要点退成上标脚注（①②③），
+      这是刊物正文的语法，不是 UI 语法。
+
+   覆盖层：带 html[data-editorial] 前缀，不改 style.css / board.css。
+   ============================================================ */
+
+/* ── 0. 自托管拉丁衬线 ─────────────────────────── */
+@font-face {
+  font-family: "Lora";
+  src: url("./fonts/Lora-Regular.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Lora";
+  src: url("./fonts/Lora-Bold.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Lora";
+  src: url("./fonts/Lora-Italic.ttf") format("truetype");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+
+/* ── 1. 令牌 ─────────────────────────────────────── */
+html[data-editorial] {
+  color-scheme: light;
+
+  --paper: #F7F5F0;       /* 纸：略暖，但不是奶油色 */
+  --paper-2: #F1EFE8;
+  --ink: #16161A;         /* 墨：不是纯黑 */
+  --ink-2: #55544E;
+  --ink-3: #8C8A80;
+  --rule: #D8D3C6;        /* 发丝线 */
+  --rule-2: #B9B3A3;      /* 重线 */
+  --accent: #1F3A5F;      /* 墨蓝：刊头线、页码、链接 */
+
+  --bg: var(--paper);
+  --surface: var(--paper);
+  --surface-2: var(--paper-2);
+  --surface-3: #E9E6DD;
+  --surface-4: #E1DDD2;
+  --border: var(--rule);
+  --border-2: var(--rule-2);
+  --text: var(--ink);
+  --text-2: var(--ink-2);
+  --text-3: var(--ink-3);
+  --accent-ink: var(--accent);
+  --accent-soft: rgba(31, 58, 95, 0.08);
+  --danger: #8C2F27;
+  --warn: #7A5A20;
+  --ok: #2C5340;
+  --btn-bg: var(--ink);
+  --btn-fg: var(--paper);
+  --nav-bg: var(--paper);
+  --shadow: none;
+  --shadow-lg: none;
+  --raised: none;
+
+  --font-hei: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-song: "Songti SC", "SimSun", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "Times New Roman", serif;
+  --font-latin: "Lora", Georgia, "Times New Roman", serif;
+}
+
+/* 夜刊：同一版式，油墨反印 */
+html[data-editorial][data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #17161A;
+  --paper-2: #1E1D22;
+  --ink: #EDEAE2;
+  --ink-2: #A8A59C;
+  --ink-3: #75726A;
+  --rule: #2C2B31;
+  --rule-2: #3D3C43;
+  --accent: #A8BFD8;
+  --accent-ink: #A8BFD8;
+  --accent-soft: rgba(168, 191, 216, 0.1);
+  --surface-3: #232228;
+  --surface-4: #2A2930;
+  --danger: #C9736A;
+  --warn: #B99A5B;
+  --ok: #8FB3A0;
+  --btn-bg: #EDEAE2;
+  --btn-fg: #17161A;
+  --nav-bg: #17161A;
+}
+
+/* ── 2. 基础排版 ────────────────────────────────── */
+html[data-editorial] body {
+  font-family: var(--font-song);
+  font-size: 16px;
+  line-height: 1.9;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+html[data-editorial] .wrap { width: min(1120px, 100% - 72px); padding: 0; }
+
+/* 数字与拉丁：Lora */
+html[data-editorial] :where(.ticker dt, .metrics b, .kpis .kpi b, .card-stat b,
+  .bhead-meta b, .tcount b, table.list td.num, .preview-cols b, .pv-amt, .pv-d,
+  .foot-note, .dv) {
+  font-family: var(--font-latin);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0;
+}
+
+/* ── 3. 刊头 ─────────────────────────────────────── */
+/* 双线刊头：3px 粗线 + 1px 细线，是老牌刊物的常见做法 */
+html[data-editorial] .topbar {
+  position: sticky; top: 0; z-index: 40;
+  height: auto; padding: 14px 0 0;
+  background: var(--paper);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  border-bottom: 0;
+  display: block;
+}
+html[data-editorial] .topbar::after {
+  content: ""; display: block;
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  border-top: 3px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  height: 4px;
+}
+html[data-editorial] .topbar {
+  padding-left: 0; padding-right: 0;
+}
+/* 顶栏内容仍要居中在版心内 */
+html[data-editorial] .topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  gap: 24px;
+  width: min(1120px, 100% - 72px);
+  margin: 0 auto;
+}
+
+html[data-editorial] .brand { gap: 0; align-items: baseline; }
+html[data-editorial] .logo { display: none; }   /* 刊物不用图标，靠字 */
+html[data-editorial] .brand-text strong {
+  font-family: var(--font-hei);
+  font-size: 26px; font-weight: 700; letter-spacing: 0.18em;
+  color: var(--ink);
+}
+html[data-editorial] .brand-text em {
+  display: inline; margin-left: 12px;
+  font-family: var(--font-song); font-style: normal;
+  font-size: 12px; letter-spacing: 0.3em; color: var(--ink-3);
+  vertical-align: 3px;
+}
+html[data-editorial] .nav { gap: 0; align-self: center; justify-self: end; padding-right: 28px; }
+html[data-editorial] .nav a {
+  height: auto; padding: 0 0 0 22px;
+  font-family: var(--font-song); font-size: 14px; letter-spacing: 0.06em;
+  color: var(--ink-2); border: 0; background: none;
+}
+html[data-editorial] .nav a::before { content: "·"; margin-right: 8px; color: var(--ink-3); }
+html[data-editorial] .nav a:first-child::before { content: ""; margin: 0; }
+html[data-editorial] .nav a:hover { color: var(--accent); background: none; }
+html[data-editorial] .nav a.on {
+  color: var(--ink); background: none; box-shadow: none;
+  border-bottom: 1px solid var(--ink);
+}
+html[data-editorial] .topbar-right { align-self: center; }
+html[data-editorial] .icon-btn {
+  width: 28px; height: 28px; border: 0; background: none; color: var(--ink-3);
+}
+html[data-editorial] .icon-btn:hover { color: var(--ink); border: 0; }
+html[data-editorial] .seg { border: 1px solid var(--rule-2); background: none; padding: 0; }
+html[data-editorial] .seg button { width: 26px; height: 24px; color: var(--ink-3); }
+html[data-editorial] .seg button.on { background: var(--ink); color: var(--paper); }
+
+/* 看板页签：刊物栏目条 */
+html[data-editorial] .btabs {
+  gap: 0; align-self: center;
+  background: none; border: 0; padding: 0; border-radius: 0; box-shadow: none;
+}
+html[data-editorial] .btabs a {
+  height: auto; padding: 0 0 0 22px;
+  font-family: var(--font-song); font-size: 14px; letter-spacing: 0.06em;
+  color: var(--ink-2); background: none; box-shadow: none;
+}
+html[data-editorial] .btabs a::before { content: "·"; margin-right: 8px; color: var(--ink-3); }
+html[data-editorial] .btabs a:first-child::before { content: ""; margin: 0; }
+html[data-editorial] .btabs a.on {
+  color: var(--ink); background: none;
+  border-bottom: 1px solid var(--ink);
+}
+html[data-editorial] .bdot { display: none; }
+
+/* ── 4. 封面文章 ────────────────────────────────── */
+html[data-editorial] .hero { padding: 0; }
+html[data-editorial] .hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 56px;
+  align-items: start;
+  padding: 56px 0 40px;
+}
+html[data-editorial] .eyebrow {
+  display: block; margin: 0 0 18px; padding-top: 10px;
+  border-top: 1px solid var(--rule-2);
+  font-family: var(--font-hei); font-size: 11.5px; font-weight: 400;
+  letter-spacing: 0.22em; color: var(--ink-3); text-transform: none;
+}
+html[data-editorial] .eyebrow .dot { display: none; }
+html[data-editorial] .hero-title {
+  max-width: none; margin: 0 0 22px;
+  font-family: var(--font-hei);
+  font-size: clamp(32px, 4.4vw, 54px);
+  font-weight: 700; line-height: 1.22; letter-spacing: 0.01em;
+  color: var(--ink);
+}
+html[data-editorial] .hero-title .hl {
+  color: var(--ink);
+  background: linear-gradient(transparent 62%, rgba(31, 58, 95, 0.14) 62%);
+}
+html[data-editorial] .hero-sub {
+  max-width: 30em; margin: 0 0 22px;
+  font-family: var(--font-song); font-size: 17px; line-height: 2;
+  color: var(--ink-2);
+  text-indent: 2em;          /* 中文书刊的首行缩进 */
+}
+html[data-editorial] .hero-sub strong { color: var(--ink); font-weight: 700; }
+
+/* 检索：一条下划线的「查」 */
+html[data-editorial] .searchbar {
+  max-width: 420px; padding: 0 0 6px; gap: 8px;
+  border: 0; border-bottom: 1px solid var(--ink); background: none;
+  border-radius: 0;
+}
+html[data-editorial] .searchbar:focus-within { border-color: var(--accent); box-shadow: none; }
+html[data-editorial] .sb-icon { width: 14px; height: 14px; color: var(--ink-3); }
+html[data-editorial] .searchbar input {
+  font-family: var(--font-song); font-size: 15px; line-height: 2; color: var(--ink);
+}
+html[data-editorial] .searchbar input::placeholder { color: var(--ink-3); }
+html[data-editorial] .searchbar kbd {
+  border: 0; background: none; color: var(--ink-3);
+  font-family: var(--font-latin); font-size: 12px; letter-spacing: 0.08em;
+}
+html[data-editorial] .sb-go {
+  height: auto; padding: 0; background: none; color: var(--ink);
+  font-family: var(--font-song); font-size: 13px; letter-spacing: 0.24em;
+  border: 0;
+}
+html[data-editorial] .sb-go:hover { background: none; color: var(--accent); }
+
+html[data-editorial] .hero-hot {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--rule);
+}
+html[data-editorial] .hero-hot button {
+  padding: 0; border: 0; background: none;
+  font-family: var(--font-song); font-size: 13.5px; letter-spacing: 0.02em;
+  color: var(--ink-2); border-bottom: 1px solid var(--rule-2);
+}
+html[data-editorial] .hero-hot button:hover {
+  color: var(--accent); border-bottom-color: var(--accent); background: none;
+}
+html[data-editorial] .hero-hot::before {
+  content: "关键词"; display: block; width: 100%;
+  font-family: var(--font-hei); font-size: 10.5px; letter-spacing: 0.24em;
+  color: var(--ink-3); margin-bottom: 4px;
+}
+
+/* 右栏：本期样本（边注） */
+html[data-editorial] .preview {
+  display: block; max-width: none;
+  border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+  background: none; border-radius: 0; box-shadow: none;
+}
+html[data-editorial] .preview-h {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 8px 0 6px; border-bottom: 1px solid var(--rule);
+  background: none;
+}
+html[data-editorial] .preview-t {
+  font-family: var(--font-hei); font-size: 11px; font-weight: 400;
+  letter-spacing: 0.18em; color: var(--ink-3);
+}
+html[data-editorial] .preview-cols { font-size: 11px; color: var(--ink-3); }
+html[data-editorial] .preview-cols b { color: var(--ink-2); font-weight: 400; }
+html[data-editorial] .pv-row {
+  padding: 9px 0; border-bottom: 1px solid var(--rule);
+}
+html[data-editorial] .pv-row:hover { background: none; }
+html[data-editorial] .pv-when .pv-d {
+  font-size: 13px; color: var(--ink); font-weight: 700;
+}
+html[data-editorial] .pv-party { font-size: 13.5px; color: var(--ink); }
+html[data-editorial] .pv-meta { font-size: 11.5px; color: var(--ink-3); }
+html[data-editorial] .pv-amt { font-size: 13px; color: var(--ink); }
+html[data-editorial] .preview-f {
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 8px 0; background: none; border-top: 0;
+  font-size: 11px; color: var(--ink-3);
+}
+html[data-editorial] .preview-f b { color: var(--ink); font-weight: 700; }
+
+/* ── 5. 本期数据：书刊表格（booktabs）───────────── */
+html[data-editorial] .ticker {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  margin: 0; padding: 0;
+  border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink);
+  background: none;
+}
+html[data-editorial] .ticker > div {
+  padding: 16px 20px 14px 0; border-left: 1px solid var(--rule);
+}
+html[data-editorial] .ticker > div:first-child { border-left: 0; padding-left: 0; }
+html[data-editorial] .ticker > div + div { padding-left: 20px; }
+html[data-editorial] .ticker dt {
+  font-size: 30px; font-weight: 400; line-height: 1.15; color: var(--ink);
+}
+html[data-editorial] .ticker dt.word {
+  font-family: var(--font-song); font-size: 20px; letter-spacing: 0.04em;
+}
+html[data-editorial] .ticker dd {
+  margin-top: 6px; font-family: var(--font-hei);
+  font-size: 10.5px; letter-spacing: 0.2em; color: var(--ink-3);
+}
+
+/* ── 6. 栏目（三块看板）──────────────────────────── */
+html[data-editorial] .boards,
+html[data-editorial] .sources,
+html[data-editorial] .roadmap { padding: 72px 0 0; }
+
+html[data-editorial] .sec-head { max-width: 640px; margin-bottom: 40px; }
+html[data-editorial] .sec-head h2 {
+  padding: 0; margin: 0 0 14px;
+  font-family: var(--font-hei);
+  font-size: 27px; font-weight: 700; line-height: 1.4; letter-spacing: 0.02em;
+  color: var(--ink);
+}
+html[data-editorial] .sec-head h2::before { display: none; }
+html[data-editorial] .sec-head p {
+  max-width: 42em; font-family: var(--font-song);
+  font-size: 15.5px; line-height: 2; color: var(--ink-2); text-indent: 2em;
+}
+
+/* 栏目：竖排，每栏一条粗线，编号在左 */
+html[data-editorial] .board-grid { display: block; border: 0; counter-reset: col; }
+html[data-editorial] .card {
+  position: relative;
+  display: block; padding: 34px 0 38px 92px;
+  border: 0; border-top: 1px solid var(--rule-2);
+  background: none; border-radius: 0;
+}
+html[data-editorial] .card:hover { background: none; border-color: var(--rule-2); }
+html[data-editorial] .card::before {
+  counter-increment: col;
+  content: counter(col, upper-roman);
+  position: absolute; left: 0; top: 30px;
+  font-family: var(--font-latin); font-style: italic;
+  font-size: 22px; line-height: 1; letter-spacing: 0.04em;
+  color: var(--rule-2);
+}
+html[data-editorial] .card-top { display: block; padding: 0; margin-bottom: 12px; }
+html[data-editorial] .card-icon { display: none; }
+html[data-editorial] .card h3 {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 0; margin: 0 0 10px;
+  font-family: var(--font-hei); font-size: 20px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: none; color: var(--ink);
+}
+html[data-editorial] .card h3::before { display: none; }
+html[data-editorial] .card h3 .en {
+  font-family: var(--font-latin); font-style: italic;
+  font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none;
+  color: var(--ink-3);
+}
+html[data-editorial] .card-desc {
+  padding: 0; margin: 0 0 18px; min-height: 0; max-width: 46em;
+  font-family: var(--font-song); font-size: 16px; line-height: 2;
+  color: var(--ink-2); text-indent: 2em;
+  -webkit-line-clamp: unset; display: block;
+}
+html[data-editorial] .card-desc strong { color: var(--ink); font-weight: 700; }
+
+/* 数据：booktabs 三线表 */
+html[data-editorial] .metrics {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 20px 0 18px; padding: 0;
+  border: 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink);
+  max-width: 46em;
+}
+html[data-editorial] .metrics li {
+  padding: 12px 16px 10px 0; border-left: 1px solid var(--rule);
+}
+html[data-editorial] .metrics li:first-child { padding-left: 0; border-left: 0; }
+html[data-editorial] .metrics b {
+  display: block; font-size: 22px; font-weight: 700; letter-spacing: 0;
+  color: var(--ink);
+}
+html[data-editorial] .metrics span {
+  display: block; margin-top: 4px;
+  font-family: var(--font-hei); font-size: 10.5px; letter-spacing: 0.16em;
+  color: var(--ink-3);
+}
+html[data-editorial] .metrics .m-warn b { color: var(--warn); }
+html[data-editorial] .metrics .m-hot b { color: var(--danger); }
+html[data-editorial] .metrics .m-money b { color: var(--ink); }
+
+html[data-editorial] .card-stat {
+  padding: 0; margin: 0 0 14px; max-width: 46em;
+  font-family: var(--font-song); font-size: 13.5px; color: var(--ink-3);
+  letter-spacing: 0.01em;
+}
+html[data-editorial] .card-stat b { color: var(--ink-2); font-weight: 400; }
+
+/* 要点：退成脚注 */
+html[data-editorial] .card-facts {
+  padding: 0; margin: 0; max-width: 46em; counter-reset: fn;
+}
+html[data-editorial] .card-facts li {
+  position: relative; padding-left: 18px; margin-bottom: 6px;
+  font-family: var(--font-song); font-size: 14px; line-height: 1.85;
+  color: var(--ink-2);
+}
+html[data-editorial] .card-facts li::before {
+  counter-increment: fn;
+  content: counter(fn, upper-alpha);
+  position: absolute; left: 0; top: -0.42em;
+  font-family: var(--font-latin); font-size: 10px;
+  color: var(--ink-3); border: 0; background: none;
+  width: auto; height: auto; border-radius: 0;
+}
+html[data-editorial] .card-go {
+  display: inline-flex; align-items: baseline; gap: 10px;
+  margin: 16px 0 0; padding: 0; background: none; border: 0;
+  font-family: var(--font-song); font-size: 14px; font-weight: 400;
+  letter-spacing: 0.1em; color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+html[data-editorial] .card-go svg { width: 13px; height: 13px; }
+html[data-editorial] .card:hover .card-go { background: none; color: var(--accent); border-bottom-color: var(--accent); }
+html[data-editorial] .pill {
+  position: static; display: inline-block; margin-top: 8px; padding: 0;
+  border: 0; font-family: var(--font-song); font-size: 12px;
+  letter-spacing: 0.16em; color: var(--ink-3);
+}
+html[data-editorial] .pill::before { display: none; }
+html[data-editorial] .soon-card .card-desc { color: var(--ink-2); }
+
+/* 来源：三栏，用竖线分 */
+html[data-editorial] .src-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 0; }
+html[data-editorial] .src {
+  padding: 0 28px; border: 0; border-left: 1px solid var(--rule); background: none;
+}
+html[data-editorial] .src:first-child { padding-left: 0; border-left: 0; }
+html[data-editorial] .src-k {
+  display: block; margin-bottom: 8px;
+  font-family: var(--font-hei); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.16em; color: var(--ink);
+}
+html[data-editorial] .src p {
+  font-family: var(--font-song); font-size: 14.5px; line-height: 2;
+  color: var(--ink-2); max-width: none; text-indent: 2em;
+}
+html[data-editorial] .soon-grid { display: block; }
+
+/* ── 7. 版权页 ─────────────────────────────────── */
+html[data-editorial] .foot {
+  margin-top: 76px; padding: 24px 0 56px;
+  border-top: 3px solid var(--ink); border-bottom: 0;
+}
+html[data-editorial] .foot-in {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+  padding-top: 12px; border-top: 1px solid var(--ink);
+}
+html[data-editorial] .foot-brand strong {
+  font-family: var(--font-hei); font-size: 14px; font-weight: 700;
+  letter-spacing: 0.22em;
+}
+html[data-editorial] .foot-brand p,
+html[data-editorial] .foot-note {
+  font-family: var(--font-song); font-size: 12px; letter-spacing: 0.16em; color: var(--ink-3);
+}
+
+/* ── 8. 看板页：栏目内页 ─────────────────────────── */
+html[data-editorial] .bhead { border-bottom: 1px solid var(--rule-2); }
+html[data-editorial] .bhead-in { padding: 32px 0 18px; }
+html[data-editorial] .bhead h1 {
+  display: block; margin: 0 0 8px;
+  font-family: var(--font-hei); font-size: 30px; font-weight: 700;
+  letter-spacing: 0.06em; line-height: 1.3; text-transform: none;
+}
+html[data-editorial] .bhead h1 .en {
+  display: inline-block; margin-left: 14px;
+  font-family: var(--font-latin); font-style: italic;
+  font-size: 14px; letter-spacing: 0; text-transform: none; color: var(--ink-3);
+}
+html[data-editorial] .bhead p.sub {
+  max-width: 44em; font-family: var(--font-song); font-size: 15px; line-height: 2;
+  color: var(--ink-2); text-indent: 2em;
+}
+html[data-editorial] .bhead-meta {
+  font-family: var(--font-song); font-size: 11.5px; letter-spacing: 0.08em;
+  color: var(--ink-3); white-space: normal;
+}
+html[data-editorial] .bhead-meta b { color: var(--ink-2); font-weight: 400; }
+
+/* KPI：四栏三线表，不是卡片 */
+html[data-editorial] .kpis {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+  padding: 0; background: none;
+  border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink);
+}
+html[data-editorial] .kpis .kpi {
+  padding: 12px 18px 12px 0; border: 0; border-left: 1px solid var(--rule);
+  border-radius: 0; background: none;
+}
+html[data-editorial] .kpis .kpi:first-child { padding-left: 0; border-left: 0; }
+html[data-editorial] .kpis .kpi b {
+  font-size: 26px; font-weight: 700; letter-spacing: 0; color: var(--ink);
+}
+html[data-editorial] .kpis .kpi span {
+  margin-top: 4px; font-family: var(--font-hei);
+  font-size: 10.5px; letter-spacing: 0.16em; color: var(--ink-3);
+}
+html[data-editorial] .kpis .kpi--accent b { color: var(--accent); }
+html[data-editorial] .kpis .kpi--hot b { color: var(--danger); }
+html[data-editorial] .kpis .kpi--hot span::before,
+html[data-editorial] .kpis .kpi--warn span::before { display: none; }
+
+/* 筛选：小字 + 下划线 */
+html[data-editorial] .filters { padding: 22px 0 18px; border-bottom: 1px solid var(--rule); }
+html[data-editorial] .frow { gap: 10px; margin-bottom: 8px; align-items: center; }
+html[data-editorial] .frow > label {
+  min-width: 62px; font-family: var(--font-hei); font-size: 11px;
+  letter-spacing: 0.14em; color: var(--ink-3);
+}
+html[data-editorial] .chips { gap: 0 18px; flex-wrap: wrap; }
+html[data-editorial] .chip {
+  padding: 2px 0; border: 0; background: none; border-radius: 0;
+  font-family: var(--font-song); font-size: 13.5px; color: var(--ink-2);
+  border-bottom: 1px solid transparent;
+}
+html[data-editorial] .chip:hover { color: var(--ink); border-bottom-color: var(--rule-2); background: none; }
+html[data-editorial] .chip.on {
+  color: var(--ink); background: none; font-weight: 700;
+  border-bottom-color: var(--ink);
+}
+html[data-editorial] .chip i {
+  margin-left: 5px; font-family: var(--font-latin); font-size: 11px; color: var(--ink-3);
+}
+html[data-editorial] .chip.on i { color: var(--ink-3); }
+html[data-editorial] .nrange input,
+html[data-editorial] .sel {
+  border: 0; border-bottom: 1px solid var(--rule-2); border-radius: 0;
+  background: none; color: var(--ink);
+  font-family: var(--font-song); font-size: 13px; padding: 2px 0;
+}
+html[data-editorial] .nrange input:focus,
+html[data-editorial] .sel:focus { border-color: var(--ink); outline: 0; box-shadow: none; }
+
+/* 工具栏 */
+html[data-editorial] .toolbar { gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--rule-2); }
+html[data-editorial] .tsearch {
+  flex: 1 1 260px; height: auto; padding: 0 0 5px;
+  border: 0; border-bottom: 1px solid var(--rule-2); background: none; border-radius: 0;
+}
+html[data-editorial] .tsearch input { font-family: var(--font-song); font-size: 14px; color: var(--ink); }
+html[data-editorial] .tsearch svg { color: var(--ink-3); width: 14px; height: 14px; }
+html[data-editorial] .tsearch:focus-within { border-color: var(--ink); box-shadow: none; }
+html[data-editorial] .tcount {
+  font-family: var(--font-hei); font-size: 11px; letter-spacing: 0.12em; color: var(--ink-3);
+}
+html[data-editorial] .tcount b { color: var(--ink-2); font-weight: 400; }
+html[data-editorial] .btn-sm {
+  height: auto; padding: 5px 14px; border: 1px solid var(--rule-2); border-radius: 0;
+  background: none; color: var(--ink-2);
+  font-family: var(--font-song); font-size: 12.5px; letter-spacing: 0.1em;
+}
+html[data-editorial] .btn-sm:hover { border-color: var(--ink); color: var(--ink); background: none; }
+html[data-editorial] .btn-sm.solid {
+  background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 400;
+}
+html[data-editorial] .btn-sm.solid:hover { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+
+/* ── 9. 数据表：三线表 ─────────────────────────── */
+html[data-editorial] .mgrid { grid-template-columns: minmax(0, 1fr) 250px; gap: 48px; padding-top: 22px; }
+html[data-editorial] .twrap { border: 0; border-radius: 0; background: none; }
+html[data-editorial] .mgrid > .aside { padding: 0; }
+
+html[data-editorial] table.list { font-family: var(--font-song); font-size: 13.5px; }
+html[data-editorial] table.list thead th {
+  position: static; padding: 8px 12px; height: auto;
+  background: none; color: var(--ink-3);
+  font-family: var(--font-hei); font-size: 10.5px; font-weight: 400;
+  letter-spacing: 0.16em; text-transform: none;
+  border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink);
+}
+html[data-editorial] table.list thead th:first-child { padding-left: 0; }
+html[data-editorial] table.list thead th.sorted { color: var(--ink); }
+html[data-editorial] table.list thead th.sorted .ar { color: var(--accent); }
+html[data-editorial] table.list tbody tr { border-bottom: 1px solid var(--rule); }
+html[data-editorial] table.list tbody tr:hover { background: rgba(31, 58, 95, 0.045); }
+html[data-editorial] table.list tbody tr:last-child { border-bottom: 2px solid var(--ink); }
+html[data-editorial] table.list td { padding: 11px 10px; line-height: 1.7; }
+html[data-editorial] table.list td:first-child { padding-left: 0; }
+html[data-editorial] table.list td .t-main { font-size: 13.5px; color: var(--ink); }
+html[data-editorial] table.list td .t-sub { margin-top: 2px; font-size: 11.5px; color: var(--ink-3); }
+html[data-editorial] table.list td.num,
+html[data-editorial] table.list td.num b {
+  font-family: var(--font-latin); color: var(--ink); font-weight: 400;
+}
+html[data-editorial] table.list td.num b { font-size: 14px; font-weight: 700; }
+html[data-editorial] .t-mono {
+  font-family: var(--font-latin); font-size: 11.5px; color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+/* 首列是完整日期时间，board.js 用行内样式写死了 15%，只能用字号换空间 */
+html[data-editorial] .board-hearing table.list tbody td:first-child .t-main { font-size: 12.5px; }
+
+/* 标签：正文里的括注，不用胶囊 */
+html[data-editorial] .tag {
+  display: inline; margin-left: 6px; padding: 0; border: 0; border-radius: 0;
+  font-family: var(--font-song); font-size: 11.5px; letter-spacing: 0.06em;
+  color: var(--ink-3); background: none;
+}
+html[data-editorial] .tag::before,
+html[data-editorial] .tag.mc::before {
+  content: "〔"; display: inline; position: static;
+  width: auto; height: auto; margin: 0; border-radius: 0; background: none;
+  color: var(--rule-2);
+}
+html[data-editorial] .tag::after,
+html[data-editorial] .tag.mc::after {
+  content: "〕"; display: inline; color: var(--rule-2);
+}
+html[data-editorial] .tag.hot,
+html[data-editorial] .tag.warn { color: var(--danger); }
+html[data-editorial] .tag.ok { color: var(--ok); }
+html[data-editorial] .tag.dim { color: var(--ink-3); border: 0; }
+
+html[data-editorial] .days {
+  display: inline; padding: 0; border: 0; background: none;
+  font-family: var(--font-latin); font-size: 12px; color: var(--ink-3);
+}
+html[data-editorial] .days.soon { color: var(--danger); font-weight: 700; background: none; }
+html[data-editorial] .days.week { color: var(--warn); border: 0; }
+html[data-editorial] .days.past { color: var(--ink-3); }
+
+/* 分页：页码式 */
+html[data-editorial] .pager {
+  display: flex; justify-content: center; gap: 16px;
+  padding: 20px 0 4px; border-top: 1px solid var(--rule);
+  background: none;
+}
+html[data-editorial] .pager button {
+  min-width: 0; height: auto; padding: 0; border: 0; border-radius: 0;
+  background: none; color: var(--ink-3);
+  font-family: var(--font-latin); font-size: 12.5px;
+}
+html[data-editorial] .pager button:hover:not(:disabled) { color: var(--accent); background: none; }
+html[data-editorial] .pager button.on {
+  color: var(--ink); font-weight: 700; background: none;
+  border-bottom: 1px solid var(--ink);
+}
+html[data-editorial] .pager .pinfo {
+  font-family: var(--font-song); font-size: 11px; letter-spacing: 0.1em; color: var(--ink-3);
+}
+
+/* ── 10. 侧栏：边注 ─────────────────────────────── */
+html[data-editorial] .panel {
+  margin-bottom: 30px; border: 0; border-top: 1px solid var(--ink);
+  border-radius: 0; background: none;
+}
+html[data-editorial] .panel-h {
+  padding: 8px 0 6px; background: none; border-bottom: 1px solid var(--rule);
+  font-family: var(--font-hei); font-size: 11px; font-weight: 400;
+  letter-spacing: 0.2em; text-transform: none; color: var(--ink-3);
+}
+html[data-editorial] .panel-h span { font-size: 10.5px; color: var(--ink-3); }
+html[data-editorial] .panel-b { padding: 10px 0 0; }
+
+html[data-editorial] .dist-row { margin-bottom: 10px; }
+html[data-editorial] .dist-row .dl { font-family: var(--font-song); font-size: 13px; color: var(--ink-2); }
+html[data-editorial] .dist-row .dv { font-size: 12px; color: var(--ink-3); }
+html[data-editorial] .dist-row.top .dl { color: var(--ink); }
+html[data-editorial] .dist-bar { height: 1px; border-radius: 0; background: var(--rule); margin-top: 6px; }
+html[data-editorial] .dist-bar i { background: var(--rule-2); border-radius: 0; }
+html[data-editorial] .dist-row.top .dist-bar i { background: var(--accent); }
+
+html[data-editorial] .presets { gap: 0; }
+html[data-editorial] .preset {
+  padding: 6px 0; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0;
+  font-family: var(--font-song); font-size: 13px; color: var(--ink-2); background: none;
+}
+html[data-editorial] .preset:hover { background: none; color: var(--accent); border-color: var(--rule); }
+html[data-editorial] .preset .pn { font-family: var(--font-latin); font-size: 11px; color: var(--ink-3); }
+html[data-editorial] .aside-note {
+  margin-top: 16px; padding: 10px 0 0; border: 0; border-top: 1px solid var(--rule);
+  border-radius: 0; font-family: var(--font-song);
+  font-size: 11.5px; line-height: 1.9; color: var(--ink-3); background: none;
+}
+
+/* ── 11. 详情：一页抽印本 ───────────────────────── */
+html[data-editorial] .modal-mask { background: rgba(22, 22, 26, 0.42); }
+html[data-editorial] .modal-box {
+  border: 0; border-radius: 0; background: var(--paper);
+  box-shadow: 0 2px 0 var(--rule), 0 24px 60px -20px rgba(22, 22, 26, 0.3);
+  border-top: 3px solid var(--ink); border-bottom: 3px solid var(--ink);
+}
+html[data-editorial] .modal-h {
+  padding: 20px 28px 14px; background: none;
+  border-bottom: 1px solid var(--rule-2);
+}
+html[data-editorial] .modal-h h3 {
+  font-family: var(--font-hei); font-size: 20px; font-weight: 700;
+  letter-spacing: 0.03em; color: var(--ink);
+}
+html[data-editorial] .modal-h .sub {
+  margin-top: 4px; font-family: var(--font-latin); font-size: 12px; color: var(--ink-3);
+}
+html[data-editorial] .modal-x {
+  width: 26px; height: 26px; border: 0; background: none;
+  color: var(--ink-3); font-size: 17px;
+}
+html[data-editorial] .modal-b { padding: 18px 28px; }
+html[data-editorial] .modal-f {
+  padding: 14px 28px 20px; background: none; border-top: 1px solid var(--rule); gap: 14px;
+}
+html[data-editorial] .kv dt {
+  font-family: var(--font-hei); font-size: 10.5px; letter-spacing: 0.16em;
+  text-transform: none; color: var(--ink-3);
+}
+html[data-editorial] .kv dd { font-family: var(--font-song); font-size: 13.5px; color: var(--ink); }
+html[data-editorial] .fulltext {
+  font-family: var(--font-song); font-size: 14px; line-height: 2.05; color: var(--ink-2);
+  text-indent: 2em;
+}
+html[data-editorial] .body-head {
+  font-family: var(--font-hei); font-size: 10.5px; letter-spacing: 0.2em;
+  text-transform: none; color: var(--ink-3);
+}
+html[data-editorial] .loading { font-family: var(--font-song); font-size: 12.5px; color: var(--ink-3); }
+html[data-editorial] .loading .spin { border-color: var(--rule-2); border-top-color: var(--ink); }
+html[data-editorial] .empty {
+  padding: 40px 0; font-family: var(--font-song); font-size: 14px; color: var(--ink-3);
+  text-indent: 2em;
+}
+
+/* ── 12. 响应式 ────────────────────────────────── */
+@media (max-width: 1000px) {
+  html[data-editorial] .hero-grid { grid-template-columns: 1fr; gap: 32px; padding: 36px 0 28px; }
+  html[data-editorial] .preview { max-width: 460px; }
+  html[data-editorial] .mgrid { grid-template-columns: 1fr; gap: 28px; }
+  html[data-editorial] .mgrid > .aside {
+    border-top: 1px solid var(--rule); padding-top: 24px; margin-top: 8px;
+  }
+  html[data-editorial] .card { padding-left: 0; }
+  html[data-editorial] .card::before { position: static; display: block; margin-bottom: 8px; }
+  html[data-editorial] .src-grid { grid-template-columns: 1fr; }
+  html[data-editorial] .src { padding: 0 0 20px; border-left: 0; }
+  html[data-editorial] .src + .src { border-top: 1px solid var(--rule); padding-top: 20px; }
+}
+@media (max-width: 860px) {
+  html[data-editorial] .wrap { width: calc(100% - 40px); }
+  html[data-editorial] .topbar {
+    grid-template-columns: auto 1fr; width: calc(100% - 40px);
+    padding-top: 10px; gap: 12px;
+  }
+  html[data-editorial] .brand-text strong { font-size: 19px; letter-spacing: 0.14em; }
+  html[data-editorial] .brand-text em { display: none; }
+  html[data-editorial] .nav { display: none; }
+  html[data-editorial] .topbar-right { grid-column: 2; justify-self: end; }
+  html[data-editorial] .btabs { grid-column: 1 / -1; padding-bottom: 8px; }
+  html[data-editorial] .btabs a { padding: 0 16px 0 0; font-size: 13px; }
+  html[data-editorial] .hero-title { font-size: 30px; }
+  html[data-editorial] .hero-sub { font-size: 16px; }
+  html[data-editorial] .ticker { grid-template-columns: 1fr 1fr; }
+  html[data-editorial] .ticker > div { padding: 14px 14px 12px 0; }
+  html[data-editorial] .ticker > div:nth-child(3) { border-left: 0; padding-left: 0; }
+  html[data-editorial] .boards, html[data-editorial] .sources, html[data-editorial] .roadmap { padding-top: 52px; }
+  html[data-editorial] .sec-head { margin-bottom: 28px; }
+  html[data-editorial] .sec-head h2 { font-size: 22px; }
+  html[data-editorial] .metrics { grid-template-columns: 1fr; }
+  html[data-editorial] .metrics li { padding: 10px 0; border-left: 0; border-top: 1px solid var(--rule); }
+  html[data-editorial] .metrics li:first-child { border-top: 0; }
+  html[data-editorial] .bhead-in { padding: 22px 0 14px; }
+  html[data-editorial] .bhead h1 { font-size: 22px; }
+  html[data-editorial] .kpis { grid-template-columns: 1fr 1fr; }
+  html[data-editorial] .kpis .kpi { padding: 10px 12px 10px 0; }
+  html[data-editorial] .kpis .kpi:nth-child(3) { border-left: 0; padding-left: 0; }
+  html[data-editorial] .kpis .kpi b { font-size: 21px; }
+  html[data-editorial] .frow { display: block; margin-bottom: 12px; }
+  html[data-editorial] .frow > label { display: block; min-width: 0; margin-bottom: 6px; }
+  html[data-editorial] .foot { margin-top: 52px; }
+  html[data-editorial] .foot-in { display: block; }
+}
+
+/* ── 13. 减少动态效果 ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html[data-editorial] * { transition: none !important; animation: none !important; }
+}
