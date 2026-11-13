@@ -31,22 +31,23 @@
 ```
 lexify/
 ├─ web/                     # 站点本体，纯静态，零依赖
-│  ├─ index.html            # 首页：hero + 三张看板卡片 + 定位 + 路线图 + 数据源说明
+│  ├─ index.html            # 首页：hero + 三张看板卡片 + 为什么不是获客工具 + 路线图 + 数据源
 │  ├─ tender.html           # 三个看板页：外壳完全一致，差别只在 LexBoard({...}) 配置
 │  ├─ hearing.html
 │  ├─ bounty.html
 │  ├─ style.css             # 设计系统（tokens、主题、首页）
 │  ├─ board.css             # 看板页专用（KPI、筛选器、表格、侧栏、弹窗）
-│  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、趋势柱、导航高亮
+│  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、首屏真实记录预览、导航高亮
 │  ├─ board.js              # 看板引擎：筛选 / 排序 / 分页 / 渲染 / 导出，配置驱动
 │  └─ data/                 # 由 scripts/build_data.py 生成，不要手改
 │     ├─ tender.js  hearing.js  bounty.js
 │     └─ overview.js
+├─ docs/                    # README 顶部四张截图（1440×900，深色主题）
 ├─ scripts/
 │  └─ build_data.py         # 从两个 SQLite 源库导出上面 4 个文件
 ├─ tests/
-│  ├─ test_static.py        # 静态自检 84 项：离线自洽、链接、数据一致性
-│  ├─ run_ui_test.py        # 交互回归 177 项：跑无头浏览器点真页面
+│  ├─ test_static.py        # 静态自检 86 项：离线自洽、链接、数据一致性、类名不撞车
+│  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
 ├─ Dockerfile
 └─ docker-compose.yml
@@ -72,10 +73,14 @@ python scripts/build_data.py
 python scripts/build_data.py --tender-db /path/tender.db --court-db /path/bounty.db
 ```
 
-默认路径写在 `build_data.py` 顶部：
+两个源库按下面的顺序查找，一条都不用改代码：
 
-- `--tender-db` → `C:\Users\zhh\Desktop\tender-radar\data\tender.db`
-- `--court-db` → `...\bounty-radar\data\bounty.db`（开庭与悬赏共用这个库）
+1. 命令行参数 `--tender-db` / `--court-db`
+2. 环境变量 `LEXIFY_TENDER_DB` / `LEXIFY_COURT_DB`
+3. 与 `lexify/` 同级的 `tender-radar/data/tender.db`、`bounty-radar/data/bounty.db`
+4. 本机常见位置：`~/Desktop` 与 `~/WorkBuddy/*` 下的同名 `*-radar/data/*.db`
+
+开庭与悬赏共用 `bounty.db`。找不到库时脚本直接报出期望路径并退出，不会导出空数据。
 
 ---
 
@@ -145,7 +150,7 @@ bounty.db ─┘   (只读)
 
 **③ 写 `LexBoard({...})` 配置**（同一份 HTML 底部，参考下表）。
 
-**④ 首页 `index.html`** 在 `#boards` 里复制一张 `.card`，改 `data-m` 绑定的字段；路线图里把对应那张卡从 `#soon` 挪出来。
+**④ 首页 `index.html`** 在 `#boards` 里复制一张 `.card`，改 `data-m` 绑定的字段；路线图（`.roadmap` 区块，锚点仍是 `#soon`）里把对应那张卡挪出来。
 
 **⑤ 回归**：`python tests/test_static.py && python tests/run_ui_test.py`
 `test_static.py` 里的 `BOARDS` 加一行、`run_ui_test.py` 的 `SUITES` 加一行，两个页面就纳入自动校验。
@@ -203,15 +208,31 @@ bounty.db ─┘   (只读)
 
 ---
 
+## 两条会反复踩的约定
+
+**一、CSS 类名带模块前缀。** 整个站点共用一张全局样式表，没有 scope，裸类名 `.hot` / `.soon` 已经造成过三次事故：首页「常用检索」的 `.hot`（`display:flex` + 12px）把 KPI 的数字挤成行内、字号缩水；路线图区块的 `.soon`（`padding: 72px 0 8px`）把首屏预览的倒计时顶到整行之外，表格里的「7 天内截止」也被加了 72px 上内边距。规则：
+
+| 场景 | 写法 |
+|---|---|
+| 语义态 | 挂在模块类下 `.days.soon`，或带前缀 `.kpi--hot` |
+| 模块内 | `.pv-row` / `.bhead-meta` |
+| 整块区域 | `.roadmap`（不叫 `.soon`） |
+
+`test_static.py` 里有一条断言兜底：CSS 顶层不允许定义 `soon / past / week / hot / warn / money / accent / on` 这些裸类。
+
+**二、数字和文案都从数据走。** 首页指标用 `data-m="boards.hearing.total"` 绑定，取不到值会静默跳过 —— 于是会出现「HTML 里写死 1,735、实际数据 5,278」这类没人发现的偏差。测试里也有一条断言：`index.html` 里每个 `data-m` 都必须在 `overview.js` 里取到值，取不到就 FAIL。
+
+---
+
 ## 自测
 
 ```bash
-python tests/test_static.py      # 74 项，秒级，无需浏览器
-python tests/run_ui_test.py      # 177 项（3 页 × 59），无头 Chrome / Edge 点真页面
+python tests/test_static.py      # 86 项，秒级，无需浏览器
+python tests/run_ui_test.py      # 175 项（三块看板各 57–59 项），无头 Chrome / Edge 点真页面
 python tests/run_ui_test.py bounty   # 只跑一块
 ```
 
-静态检查管的是「站点还完整吗」：没有外部 CDN、所有相对链接都存在、`data/*.js` 是合法 JSON、行数等于 `meta.total`、首页汇总等于三块之和、省份没有「吉林省 / 吉林」并存、每个页面的挂载点和导航高亮齐全。
+静态检查管的是「站点还完整吗」：没有外部 CDN、所有相对链接都存在、`data/*.js` 是合法 JSON、行数等于 `meta.total`、首页汇总等于三块之和、省份没有「吉林省 / 吉林」并存、每个页面的挂载点和导航高亮齐全、**CSS 里没有会导致互相踩的裸状态类**。
 
 交互回归管的是「点下去还对吗」：多选筛选的条数是否等于 chip 上的计数、日期预设结果是否全在区间内、金额区间是否真的生效、排序是否单调且空值恒沉底、翻页是否换页、搜索是否全命中、无结果是否有空态、详情能否打开与 Esc 关闭、快捷口径条数是否与标注一致、CSV 行数是否等于结果数、侧栏分布是否不越界、界面有没有漏出英文枚举值、**表头有没有被挤成竖排、单元格有没有裁掉金额单位**、运行期有没有未捕获异常。
 
@@ -235,7 +256,7 @@ docker compose up -d --build      # http://127.0.0.1:8080
 
 - **原文链接可能打不开**：部分法院站点有 Web 应用防火墙，短时间内重复访问详情页会返回 403 拦截页（同一批数据的列表页却正常）。所以详情弹窗以**本地正文快照**为主，「去法院官网看原文」只是次要入口。CSV 导出同样带 `公告正文` 列。
 - **数据是快照，不是实时**：页面显示「更新于 …」，刷新数据需要重跑 `build_data.py`。某块的数据可能比另一块旧（比如悬赏的发布日整体偏早），筛选结果为 0 条时先看这个时间。
-- **筛选在前端做**：全量数据一次性下发（三块合计约 5 MB），换来的是零后端、`file://` 可用、筛选零延迟。数据量再涨一个数量级就要改成服务端分页 —— 那时引擎的 `state` 结构可以原样复用，只换数据源。
+- **筛选在前端做**：全量数据一次性下发（三块合计约 12 MB，其中开庭一块 7 MB，大头是公告正文快照），换来的是零后端、`file://` 可用、筛选零延迟。数据量再涨一个数量级就要改成服务端分页 —— 那时引擎的 `state` 结构可以原样复用，只换数据源。
 - **不做判断**：只做结构化与排序，不给结论、不替代律师意见。
 
 ---

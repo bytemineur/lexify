@@ -9,6 +9,7 @@
     python scripts/build_data.py --tender-db /path/tender.db --court-db /path/bounty.db
 """
 import argparse
+import glob
 import json
 import os
 import sqlite3
@@ -17,9 +18,37 @@ from datetime import date, datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "web", "data")
+HOME = os.path.expanduser("~")
 
-DEFAULT_TENDER_DB = r"C:\Users\zhh\Desktop\tender-radar\data\tender.db"
-DEFAULT_COURT_DB = r"C:\Users\zhh\WorkBuddy\2026-11-10-23-26-21\bounty-radar\data\bounty.db"
+
+def _first_existing(paths):
+    """按顺序找第一个存在的库，全都不在就返回第一项（交给调用方报错）。
+
+    不写死本机绝对路径：开源仓库里不该出现某个人的目录结构。
+    查找顺序 = 环境变量 → 同级克隆目录 → 常见存放位置。
+    """
+    for p in paths:
+        if p and os.path.exists(p):
+            return p
+    return paths[0]
+
+
+def _newest(pattern):
+    hits = glob.glob(pattern)
+    return max(hits, key=os.path.getmtime) if hits else None
+
+
+DEFAULT_TENDER_DB = _first_existing([
+    os.environ.get("LEXIFY_TENDER_DB"),
+    os.path.join(ROOT, "..", "tender-radar", "data", "tender.db"),
+    os.path.join(HOME, "Desktop", "tender-radar", "data", "tender.db"),
+])
+DEFAULT_COURT_DB = _first_existing([
+    os.environ.get("LEXIFY_COURT_DB"),
+    os.path.join(ROOT, "..", "bounty-radar", "data", "bounty.db"),
+    _newest(os.path.join(HOME, "WorkBuddy", "*", "bounty-radar", "data", "bounty.db")),
+    _newest(os.path.join(HOME, "Desktop", "*", "bounty-radar", "data", "bounty.db")),
+])
 
 BODY_LIMIT = 8000
 
@@ -311,6 +340,14 @@ def main():
     ap.add_argument("--tender-db", default=DEFAULT_TENDER_DB)
     ap.add_argument("--court-db", default=DEFAULT_COURT_DB)
     args = ap.parse_args()
+
+    for label, path in (("招标库", args.tender_db), ("法院库", args.court_db)):
+        if not os.path.exists(path):
+            sys.exit(
+                f"找不到{label}：{path}\n"
+                "用 --tender-db / --court-db 指定，"
+                "或设置环境变量 LEXIFY_TENDER_DB / LEXIFY_COURT_DB。"
+            )
 
     print("导出看板数据：")
     boards = {
