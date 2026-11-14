@@ -26,7 +26,7 @@ python main.py                     # → http://127.0.0.1:8010/
 ## 提交之前
 
 ```bash
-python tests/test_static.py        # 113 项静态自检，秒级，必须全绿
+python tests/test_static.py        # 120 项静态自检，秒级，必须全绿
 ```
 
 有浏览器环境时再跑交互回归（需要 Chrome/Edge）：

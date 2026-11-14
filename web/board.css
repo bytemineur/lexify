@@ -306,6 +306,12 @@
 .tcount b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
 
 .btn-sm {
+  /* 必须 inline-flex：<a> 和 <button> 在同一行时，靠 padding 撑高的 <a>
+     文字会贴在盒子上沿，和按钮里居中的文字错位；millennium 主题还给
+     .btn-sm 写了固定 height:38px，错位更明显。 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -619,6 +625,7 @@ table.list td.wrap { white-space: normal; }
 .modal-b { padding: 16px 20px; overflow-y: auto; }
 .modal-f {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 20px;
@@ -658,6 +665,8 @@ table.list td.wrap { white-space: normal; }
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* 没有正文时是一句说明，不是正文，弱化处理 */
+.fulltext.is-empty { color: var(--text-3); }
 
 /* ── 加载态 ─────────────────────────────────────── */
 .loading {

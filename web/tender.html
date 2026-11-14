@@ -104,6 +104,49 @@
   var U = window.LexUtil;
   var esc = U.esc, money = U.money;
 
+  // 采集器 id → 平台名，和 collectors/tender/configs/sites/*.yaml 的 name 一致。
+  // 详情里直接显示 cmhk / csg 这种内部编号，看的人不知道是哪个平台。
+  var SRC_NAME = {
+    ahzfcg: "安徽政府采购网",
+    ccgp: "中国政府采购网",
+    cfcpn: "中国金融集中采购网（金采网）",
+    chinapost: "中国邮政电子采购与供应平台",
+    chnenergy: "国能 e 招（国家能源集团）",
+    cmcc: "中国移动采购与招标网",
+    cmhk: "招商局集团电子招标采购交易网",
+    cqggzy: "重庆公共资源交易",
+    crcc: "中国铁建物资采购网",
+    crecg: "中国中铁采购电子商务平台",
+    csg: "南方电网采购平台",
+    ctg: "三峡集团电子采购平台·招标公告",
+    ctgcg: "三峡集团电子采购平台·采购公告",
+    ctsc: "中国电信阳光采购网",
+    datang: "大唐集团电子商务平台",
+    gdggzy: "广东公共资源交易",
+    ggzy: "全国公共资源交易平台",
+    gzggzy: "广州公共资源交易",
+    hbggzy: "湖北公共资源交易",
+    hnzfcg: "湖南政府采购网",
+    jsggzy: "江苏公共资源交易",
+    plap: "军队采购网",
+    scgqcg: "四川国企采购",
+    sczfcg: "四川政府采购",
+    sgcc: "国家电网电子商务平台",
+    shzfcg: "上海政府采购网",
+    sxggzy: "陕西公共资源交易",
+    sxzfcg: "山西政府采购网",
+    szecp: "华润守正电子招标平台·招标公告",
+    szecpcg: "华润守正电子招标平台·采购公告",
+    szggzy: "深圳公共资源交易",
+    zjzfcg: "浙江政府采购网",
+    ztbpub: "中国招标投标公共服务平台",
+    zycg: "中央国家机关政府采购中心"
+  };
+
+  function srcLabel(id) {
+    return SRC_NAME[id] || id || "—";
+  }
+
   function clip(s, n) {
     s = s || "";
     if (s.length <= n) return s;
@@ -260,6 +303,10 @@
     asideNote: "预算与截止时间是程序从公告原文抽取的。部分平台把「获取招标文件截止」写成开标时间，" +
       "这类会标「需核对」。投标前请以采购平台原文为准。",
 
+    // 招标公告多数正文在平台附件里，取不到就明说取不到，别套用法院排期表那套说法
+    bodyEmpty: "（本条采集时没有取到正文：这类平台的公告正文多数放在附件里，或需要登录后才能查看。" +
+      "完整内容请点下方「去采购平台看原文」。）",
+
     detail: function (r) {
       var d = U.daysFrom(r.due);
       var due = r.due || "未写";
@@ -281,7 +328,7 @@
           ["行业", esc(r.cat || "—")],
           ["地区", esc((r.prov || "") + (r.city ? " " + r.city : ""))],
           ["发布日期", esc(r.pub || "—")],
-          ["数据源", esc(r.src || "—")]
+          ["数据源", esc(srcLabel(r.src))]
         ]
       };
     }

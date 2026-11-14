@@ -509,6 +509,14 @@
     }
 
     /* ---------------- 详情 ---------------- */
+    // 「没有正文」和「原文链接」的说明都跟看板强相关：开庭公告是法院排期表、
+    // 招标公告是采购平台附件，写死一套文案会张冠李戴。看板在 CFG 里覆盖。
+    var EMPTY_DEFAULT = "（本条没有留存正文）";
+    var NOTE_BODY = "原文链接指向源站详情页，部分站点有 Web 应用防火墙，短时间多次访问会返回 403 拦截页。" +
+      "上面的正文是采集时的快照，不受影响。";
+    var NOTE_EMPTY = "原文链接指向源站详情页。部分站点有 Web 应用防火墙，短时间多次访问可能返回 403 拦截页，" +
+      "换个时段再试。";
+
     function openDetail(r) {
       var d = CFG.detail(r);
       $("mTitle").textContent = d.title || "";
@@ -519,13 +527,18 @@
       }).join("") + "</dl>";
 
       var body = r.body || "";
-      html += '<div class="body-head"><span>公告正文 · 本地留存快照</span>' +
-        (body ? '<button class="btn-sm" id="mCopy">复制全文</button>' : "") + "</div>";
-      html += '<div class="fulltext">' +
-        esc(body || "（该条没有正文：法院排期表类数据只提供案号 / 案由 / 开庭时间 / 法庭）") + "</div>";
-      html += '<p class="aside-note" style="margin-top:10px">原文链接指向源站详情页，' +
-        "部分法院站点有 Web 应用防火墙，短时间多次访问会返回 403 拦截页。" +
-        "上面的正文是采集时的快照，不受影响。</p>";
+      var hasBody = body.trim() !== "";
+      var empty = d.bodyEmpty || CFG.bodyEmpty || EMPTY_DEFAULT;
+      var note = hasBody
+        ? (d.note || CFG.note || NOTE_BODY)
+        : (d.noteEmpty || CFG.noteEmpty || NOTE_EMPTY);
+
+      html += '<div class="body-head"><span>公告正文' +
+        (hasBody ? " · 本地留存快照" : "") + "</span>" +
+        (hasBody ? '<button class="btn-sm" id="mCopy">复制全文</button>' : "") + "</div>";
+      html += '<div class="fulltext' + (hasBody ? "" : " is-empty") + '">' +
+        esc(hasBody ? body : empty) + "</div>";
+      html += '<p class="aside-note" style="margin-top:10px">' + esc(note) + "</p>";
 
       $("mBody").innerHTML = html;
 

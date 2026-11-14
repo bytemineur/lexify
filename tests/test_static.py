@@ -217,6 +217,42 @@ def check_shell(html_files):
     ok("无裸状态类定义（状态类必须带前缀）", not bare, ",".join(bare))
 
 
+def check_detail():
+    """详情弹窗：按钮文字错位、「没有正文」的说明张冠李戴，都是一眼能看见的问题。"""
+    print("\n[5] 详情弹窗")
+    board_js = read(os.path.join(WEB, "board.js"))
+    board_css = read(os.path.join(WEB, "board.css"))
+
+    # <a class="btn-sm"> 和 <button class="btn-sm"> 并排时，只靠 padding 撑高的锚点
+    # 会把文字顶到盒子上沿（millennium 主题还给 .btn-sm 定了 height:38px），
+    # 「去采购平台看原文」和「关闭」就一个偏上一个居中。
+    m = re.search(r"(?m)^\.btn-sm\s*\{([^}]*)\}", board_css)
+    css_btn = m.group(1) if m else ""
+    ok("详情按钮文字垂直居中（.btn-sm 用 inline-flex + align-items）",
+       "display: inline-flex" in css_btn and "align-items: center" in css_btn)
+    m = re.search(r"(?m)^\.modal-f\s*\{([^}]*)\}", board_css)
+    ok("底部按钮行按中线对齐（.modal-f 有 align-items）",
+       bool(m) and "align-items: center" in m.group(1))
+
+    # 「没有正文」的说法必须由看板自己给：写在引擎里，招标页就会冒出法院排期表的说法
+    ok("board.js 不再写死法院排期表的说法",
+       "法院排期表类数据只提供" not in board_js and "CFG.bodyEmpty" in board_js)
+    for page in ("tender.html", "hearing.html", "bounty.html"):
+        s = read(os.path.join(WEB, page))
+        ok("%s 声明了 bodyEmpty" % page, bool(re.search(r"(?m)^\s{4}bodyEmpty:", s)))
+
+    # 详情里的「数据源」原来直接印采集器编号（cmhk / csg），没人看得懂；
+    # 映射表还必须是完整的，漏一个就退回编号。
+    s = read(os.path.join(WEB, "tender.html"))
+    m = re.search(r"var SRC_NAME = \{([\s\S]*?)\n  \};", s)
+    known = set(re.findall(r"(?m)^\s*(\w+):\s*\"", m.group(1))) if m else set()
+    d = load_data("tender") or {}
+    used = {r.get("src") for r in (d.get("rows") or []) if r.get("src")}
+    missing = sorted(used - known)
+    ok("招标数据源都有中文名（不是 cmhk 这种编号）",
+       bool(known) and not missing, ",".join(missing))
+
+
 def check_docs():
     """文档和代码不能各说各的：端口、后台用法这类「抄来抄去」的信息最容易漂。"""
     print("\n[5] 文档与代码一致")
@@ -289,6 +325,7 @@ def main():
     check_links(html_files)
     check_data()
     check_shell(html_files)
+    check_detail()
     check_docs()
 
     print("\n合计 %d 项通过，%d 项失败，%d 项提醒" % (len(passes), len(fails), len(warns)))
