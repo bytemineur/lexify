@@ -115,6 +115,21 @@ def ensure_parent(path):
         os.makedirs(parent, exist_ok=True)
 
 
+def writable_check(path=None):
+    """写库前先探一下权限，返回 (ok, 说明)。
+
+    「sudo 跑过一次」在服务器上太常见了：data/ 里的库和口令文件属主变成 root，
+    之后 ubuntu 用户跑 manage.py 就只剩一句 readonly database。
+    """
+    path = path or DB
+    d = os.path.dirname(os.path.abspath(path))
+    if not os.path.isdir(d) or not os.access(d, os.W_OK):
+        return False, "目录不可写：%s" % d
+    if os.path.exists(path) and not os.access(path, os.W_OK):
+        return False, "库文件不可写：%s" % path
+    return True, ""
+
+
 # ────────────────────────────── 库 ──────────────────────────────
 def connect(create=False):
     if not os.path.exists(DB):
@@ -146,12 +161,28 @@ def ensure_schema(path=None, quiet=True):
     """幂等地把 schema 补齐：新库建全，老库补上后加的表（如 crawl_failures）。"""
     path = path or DB
     ensure_parent(path)
-    conn = sqlite3.connect(path)
-    with open(SCHEMA, encoding="utf-8") as f:
-        conn.executescript(f.read())
-    conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(path)
+        with open(SCHEMA, encoding="utf-8") as f:
+            conn.executescript(f.read())
+        conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
+        conn.commit()
+    except sqlite3.OperationalError as e:
+        # sqlite 只会说 "attempt to write a readonly database"，既不给路径也不给解法。
+        # 这里换成能照着做的说法（raise RuntimeError，别用 SystemExit —— 它会被
+        # main.py 的 except Exception 漏掉，直接把 web 进程带走）。
+        low = str(e).lower()
+        if "readonly" in low or "permission" in low:
+            raise RuntimeError(
+                "库是只读的（%s）：%s —— 目录/文件属主可能是 root，"
+                "用 sudo chown -R $USER:$USER %s 修一下"
+                % (path, e, os.path.dirname(os.path.abspath(path))))
+        raise
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
     if not quiet:
         print("schema 已就绪：%s（版本 %d）" % (path, SCHEMA_VERSION))
 
@@ -470,8 +501,19 @@ def main():
     ap.add_argument("--sites", default="", help="crawl 招标只跑指定来源（逗号分隔）")
     args = ap.parse_args()
 
+    ok, why = writable_check()
+    if not ok and args.cmd in ("init", "add", "crawl", "update"):
+        print("✗ %s" % why)
+        print("  这个命令要写库，先修权限（属主多半是 root，因为之前用 sudo 跑过）：")
+        print("    sudo chown -R $USER:$USER %s" % os.path.dirname(os.path.abspath(DB)))
+        raise SystemExit(1)
+
     if os.path.exists(DB):
-        ensure_schema(quiet=True)
+        try:
+            ensure_schema(quiet=True)
+        except RuntimeError as e:
+            print("✗ %s" % e)
+            raise SystemExit(1)
 
     if args.cmd == "init":
         init_db(force=args.force)

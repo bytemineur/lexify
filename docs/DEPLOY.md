@@ -295,6 +295,14 @@ cp data/lexify.db data/backup/lexify-$(date +%Y%m%d).db
 | 推送失败 | token 是否过期、是否给了 Contents: Read and write |
 | 页面数据还是旧的 | 看 `web/data/hearing.js` 的修改时间，以及 `overview.js` 里的 `generatedAt` |
 | 中文变问号 / 乱码 | Windows 控制台代码页问题，`compat.setup_console()` 已处理；自建脚本请沿用 `scripts/compat.py` |
+| 后台报 `attempt to write a readonly database` | `data/` 属主成了 root（多半之前用 `sudo` 跑过）。`sudo chown -R $USER:$USER data` 后重启 |
+| 启动日志 `⚠ 后台口令写不进 …`、`Permission denied` | 同上，`data/` 不可写；口令只在进程内有效，修完权限重启就会落盘 |
+| 日志里大量 `BrokenPipeError` 堆栈 | 旧版会打；现在客户端中途断开已静默。若还在刷，确认跑的是 `main.py` 而不是 `python -m http.server` |
+| 后台按钮没反应、也不报错 | 看页面顶部红色横幅：库不可写时按钮不会执行，直接给修复命令 |
+
+> 服务器上跑**别用 `sudo`**：`sudo python main.py` 会让 `data/` 里所有文件属主变成 root，
+> 之后普通用户再跑就只剩一句 `readonly database`。真要用 root 跑，就把整个仓库都给 root，
+> 别一半一半。
 
 ---
 

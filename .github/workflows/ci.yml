@@ -23,7 +23,7 @@ jobs:
         run: |
           python -m compileall -q main.py scripts collectors
 
-      - name: 静态自检（106 项）
+      - name: 静态自检（113 项）
         run: python tests/test_static.py
 
       - name: 数据文件可解析

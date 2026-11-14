@@ -63,8 +63,60 @@ MIME = {
 COMPRESSIBLE = (".html", ".css", ".js", ".json", ".svg", ".txt")
 _gz_cache = {}
 
+# 客户端提前走的三种例外：关标签页、点停止、网络断。
+# 这三种跟服务端无关，不该打堆栈（用户看到的就是 nohup.out 被 BrokenPipe 刷满）。
+CLIENT_GONE = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
+
 
 # ────────────────────────────── 数据与子进程 ──────────────────────────────
+DB_FIX_HINT = (
+    "  库是 SQLite，%s 必须是可写的（要写 WAL 和临时文件）。\n"
+    "  最常见原因：之前用 sudo 跑过一次，data/ 里的文件属主变成了 root。\n"
+    "  修一下（把 USER 换成你的登录用户）：\n"
+    "    sudo chown -R USER:USER %s\n"
+    "  然后重启进程。"
+)
+
+
+def db_writable():
+    """库到底能不能写 —— 提前探，别等采集跑一半才抛 sqlite 的原文。
+
+    `attempt to write a readonly database` 这种报错对使用者毫无信息量：它既不说
+    哪个路径、也不说该改什么权限。所以先自己探一遍目录/文件权限，再真开一次
+    写事务兜底（root 身份下 os.access 会假阳性）。
+    """
+    d = os.path.dirname(os.path.abspath(DB))
+    if not os.path.isdir(d) or not os.access(d, os.W_OK):
+        return False, "目录不可写：%s" % d
+    if not os.path.exists(DB):
+        return True, ""                        # 库还没建，建库时再看
+    if not os.access(DB, os.W_OK):
+        return False, "库文件不可写：%s" % DB
+    try:
+        conn = sqlite3.connect(DB, timeout=2)
+        try:
+            conn.execute("BEGIN IMMEDIATE")    # 真拿一次写锁，readonly 会在这里炸
+            conn.rollback()
+        finally:
+            conn.close()
+        return True, ""
+    except sqlite3.Error as e:
+        return False, "%s（%s）" % (e, DB)
+
+
+def db_tables_ok():
+    """核心表在不在。缺表通常意味着 schema 从没建成（常见于库只读）。"""
+    if not os.path.exists(DB):
+        return False
+    try:
+        conn = sqlite3.connect(DB)
+        have = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        conn.close()
+    except sqlite3.Error:
+        return False
+    return {"tenders", "hearings", "notices"}.issubset(have)
+
+
 def db_is_empty():
     """三块看板合起来一条都没有 → 认为是全新的库。"""
     if not os.path.exists(DB):
@@ -80,9 +132,13 @@ def db_is_empty():
 
 
 def db_stats():
+    """后台首页的全部数据。任何一张表缺失都不能让整个 /admin 500。"""
     if not os.path.exists(DB):
         return None, [], []
-    conn = sqlite3.connect(DB)
+    try:
+        conn = sqlite3.connect(DB)
+    except sqlite3.Error:
+        return None, [], []
     conn.row_factory = sqlite3.Row
     counts = {}
     for t in ("tenders", "sources", "hearings", "notices"):
@@ -90,9 +146,12 @@ def db_stats():
             counts[t] = conn.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
         except sqlite3.Error:
             counts[t] = -1
-    runs = [dict(r) for r in conn.execute(
-        "SELECT started_at,kind,mode,origin,total_seen,inserted,updated,skipped,status "
-        "FROM ingest_runs ORDER BY id DESC LIMIT 8")]
+    try:
+        runs = [dict(r) for r in conn.execute(
+            "SELECT started_at,kind,mode,origin,total_seen,inserted,updated,skipped,status "
+            "FROM ingest_runs ORDER BY id DESC LIMIT 8")]
+    except sqlite3.Error:
+        runs = []                              # 表还没建出来（库只读时就是这种）
     try:
         fails = [dict(r) for r in conn.execute(
             "SELECT started_at,board,source,stage,reason,detail,run_id FROM crawl_failures "
@@ -260,6 +319,7 @@ def load_admin_token():
         except OSError:
             pass
     t = secrets.token_urlsafe(24)
+    saved = TOKEN_FILE
     try:
         os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
         with open(TOKEN_FILE, "w", encoding="utf-8") as f:
@@ -269,9 +329,13 @@ def load_admin_token():
         except OSError:
             pass
     except OSError as e:
-        print("⚠ 后台口令写不进 %s（%s），本次仅在进程内有效" % (TOKEN_FILE, e))
+        saved = ""
+        print("⚠ 后台口令写不进 %s（%s）" % (TOKEN_FILE, e))
+        print("  → 本次口令只在进程内有效，重启就会变；想固定就设 LEXIFY_ADMIN_TOKEN 或 --admin-token")
+        print("  → 通常是把 data/ 的属主弄成了 root：sudo chown -R USER:USER %s"
+              % os.path.dirname(os.path.abspath(DB)))
     ADMIN_TOKEN = t
-    return t, "自动生成 → %s" % TOKEN_FILE
+    return t, ("自动生成 → %s" % saved) if saved else "临时生成（未落盘，重启失效）"
 
 
 DENY_PAGE = """<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
@@ -337,8 +401,11 @@ pre{{background:#F7F7F8;border:1px solid var(--l);padding:14px;white-space:pre-w
 .pill{{display:inline-block;margin:0 8px 8px 0;padding:2px 9px;border:1px solid var(--l);font-size:12px;color:var(--m)}}
 .hint{{margin-top:8px;font-size:12px;color:var(--m)}}
 .err{{color:#c62828}}
+.warn{{margin:14px 0 0;padding:14px 18px;border:1px solid #F0B7B4;background:#FDF3F2;font-size:13px}}
+.warn b{{color:#c62828}}
+.warn code{{background:#fff;border:1px solid #F0B7B4;padding:1px 5px;font-family:ui-monospace,Consolas,monospace;font-size:12px}}
 </style></head><body>
-<h1>Lexify 数据后台</h1>
+<h1>Lexify 数据后台</h1>{notice}
 <div class="sub">统一库 <code>{db}</code> · <a href="/docs">项目文档</a> · <a href="/">← 回到站点</a>{auth}</div>
 <h2>当前数据</h2>{counts}
 <h2>手动更新数据</h2>
@@ -368,6 +435,22 @@ pre{{background:#F7F7F8;border:1px solid var(--l);padding:14px;white-space:pre-w
 
 def render(output=""):
     counts, runs, fails = db_stats()
+
+    # 库只读是最常见的一种「后台看起来正常、点按钮全失败」。
+    # 与其让用户从 sqlite 的 readonly 报错里猜，不如直接在页面上说清楚。
+    writable, why = db_writable()
+    if not writable:
+        notice = ('<div class="warn"><b>数据目录不可写</b>：%s<br>'
+                  '采集、上传、重建都会失败（站点浏览不受影响）。'
+                  '通常是之前用 <code>sudo</code> 跑过，<code>data/</code> 属主变成了 root：<br>'
+                  '<code>sudo chown -R USER:USER %s</code>，然后重启进程。</div>'
+                  % (html.escape(why), html.escape(os.path.dirname(os.path.abspath(DB)))))
+    elif counts is not None and not db_tables_ok():
+        notice = ('<div class="warn"><b>库里没有核心表</b>（schema 没建成）。'
+                  '多半是库可写但建表时被中断——点下面的「采集全部并更新」会重新建表。</div>')
+    else:
+        notice = ""
+
     if counts is None:
         counts_html = '<p class="err">还没有库，先跑：python scripts/manage.py init</p>'
     else:
@@ -414,7 +497,7 @@ def render(output=""):
         auth = ' · <a href="/admin/logout">退出登录</a>'
     return PAGE.format(db=html.escape(DB), counts=counts_html, runs=runs_html,
                        failures=fails_html, output=out, job=job_html(), refresh=refresh,
-                       auth=auth)
+                       auth=auth, notice=notice)
 
 
 def parse_fields(ctype, body):
@@ -647,6 +730,7 @@ def render_schema():
 class Handler(BaseHTTPRequestHandler):
     server_version = "Lexify"
     protocol_version = "HTTP/1.1"
+    _client_gone = False
 
     def log_message(self, fmt, *args):
         if "/admin" in (self.path or ""):
@@ -654,14 +738,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send(self, code, body, ctype="text/html; charset=utf-8", extra=None):
         data = body.encode("utf-8") if isinstance(body, str) else body
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(data)))
-        for k, v in (extra or {}).items():
-            self.send_header(k, v)
-        self.end_headers()
-        if self.command != "HEAD":
-            self.wfile.write(data)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(data)
+        except CLIENT_GONE:
+            # 浏览器切页/取消加载/手机切后台，客户端先断开了。7 MB 的 hearing.js
+            # 最容易撞上，这既不是错误也不可修，安静收工即可。
+            self.close_connection = True
+            self._client_gone = True
 
     # ---------- 鉴权 ----------
     def _is_local(self):
@@ -732,7 +822,12 @@ class Handler(BaseHTTPRequestHandler):
 
         http.server 的默认行为是断开连接，前端拿到的是 net::ERR_EMPTY_RESPONSE，
         完全看不出哪里错了；后台调脚本、读库都可能出意外，这里至少要留下痕迹。
+
+        但客户端主动断开不算异常 —— 那种情况连 500 都发不出去，只会再抛一次。
         """
+        if isinstance(e, CLIENT_GONE):
+            self.close_connection = True
+            return
         traceback.print_exc()
         try:
             self._send(500, "500 %s：%s（详细堆栈看服务端日志）"
@@ -842,6 +937,15 @@ class Handler(BaseHTTPRequestHandler):
         if not self._same_origin():
             return self._send(403, "forbidden：跨站提交被拒绝")
 
+        # 三个按钮都要写库/写 data/。库不可写时直接说清楚，别让子进程抛 sqlite 原文。
+        if path in ("/admin/crawl", "/admin/rebuild", "/admin/upload"):
+            writable, why = db_writable()
+            if not writable:
+                return self._send(200, render(
+                    "✗ 库不可写，这次操作没有执行。\n原因：%s\n\n"
+                    "修：sudo chown -R USER:USER %s\n然后重启进程。"
+                    % (why, os.path.dirname(os.path.abspath(DB)))))
+
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length)
         ctype = self.headers.get("Content-Type", "")
@@ -887,6 +991,23 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, "not found")
 
 
+class QuietHTTPServer(ThreadingHTTPServer):
+    """客户端断连不刷日志。
+
+    socketserver 会把所有逃出 handle() 的异常打成「Exception occurred during
+    processing of request」+ 完整堆栈。浏览器取消加载时这是纯噪音：一页
+    hearing.js 7 MB，用户随手切一下就是一段 BrokenPipe 堆栈，日志很快没法看。
+    """
+
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], CLIENT_GONE):
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
     setup_console()
     ap = argparse.ArgumentParser()
@@ -908,10 +1029,19 @@ def main():
         ADMIN_OPEN = True
     token, token_src = load_admin_token()
 
+    # 先探库能不能写。只读库会让「自动采集」「后台按钮」「schema 补齐」全部失败，
+    # 而 sqlite 的原始报错只说一句 readonly database，不说路径也不说怎么修。
+    writable, why = db_writable()
+    if not writable:
+        print("⚠ 数据目录不可写：%s" % why)
+        print(DB_FIX_HINT % (os.path.dirname(os.path.abspath(DB)),
+                             os.path.dirname(os.path.abspath(DB))))
+        print("  站点照常可以浏览（页面读的是 web/data/*.js 快照）；采集/上传/重建会失败。")
+
     if not os.path.exists(DB):
         print("库里还没有数据，先建一个空的：%s" % DB)
         sh(["scripts/manage.py", "init"])
-    else:
+    elif writable:
         # 幂等补表：老库也能拿到后加的 crawl_failures
         try:
             import manage
@@ -921,25 +1051,29 @@ def main():
 
     # 首次启动：三块合起来一条数据都没有 → 后台自动跑一次采集
     if db_is_empty():
-        if args.no_auto_crawl:
+        if not writable:
+            print("库是空的，但库不可写 → 自动采集已跳过，先按上面的提示修权限")
+        elif args.no_auto_crawl:
             print("库是空的（--no-auto-crawl 已关闭自动采集）→ 去 /admin 点「采集全部并更新」")
         else:
             print("库是空的 → 后台自动执行第一次采集，进度看 /admin")
             start_job("首次采集", ["scripts/manage.py", "crawl"])
+    elif not writable:
+        pass                                   # 定时任务也别排，必然失败
     elif args.run_now:
         threading.Thread(target=run_update, daemon=True).start()
     elif not args.no_schedule and catch_up_needed(args.at):
         print("今天 %s 的更新还没跑 → 启动即补一次" % args.at)
-        threading.Thread(target=run_update, daemon=True).start()
+        thread = threading.Thread(target=run_update, daemon=True)
+        thread.start()
 
     if args.admin_only:
         args.bind = "127.0.0.1"
 
-    if not args.no_schedule:
+    if not args.no_schedule and writable:
         start_scheduler(args.at)
 
-    srv = ThreadingHTTPServer((args.bind, args.port), Handler)
-    srv.daemon_threads = True
+    srv = QuietHTTPServer((args.bind, args.port), Handler)
     host = "127.0.0.1" if args.bind == "0.0.0.0" else args.bind
     base = "http://%s:%d" % (host, args.port)
     print("站点：  %s/" % base)

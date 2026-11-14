@@ -62,7 +62,7 @@ lexify/
 │  ├─ publish_data.py       # 数据有实质变化才推送 GitHub（由 manage.py 调用）
 │  └─ compat.py             # 跨平台底座：控制台 UTF-8、子进程环境、解释器定位
 ├─ tests/
-│  ├─ test_static.py        # 静态自检 106 项：离线自洽、链接、数据一致性、类名不撞车
+│  ├─ test_static.py        # 静态自检 113 项：离线自洽、链接、数据一致性、类名不撞车
 │  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
 ├─ main.py                  # 唯一入口：站点 + 管理后台 + 定时更新
@@ -258,7 +258,7 @@ manage.py crawl
 ## 自测
 
 ```bash
-python tests/test_static.py      # 106 项，秒级，无需浏览器
+python tests/test_static.py      # 113 项，秒级，无需浏览器
 python tests/run_ui_test.py      # 175 项（三块看板各 57–59 项），无头 Chrome / Edge 点真页面
 python tests/run_ui_test.py bounty   # 只跑一块
 ```
@@ -358,7 +358,7 @@ python3 main.py                  # → http://<服务器>:8010/
 ```bash
 python main.py                    # 起服务（站点 + /admin + 定时）
 python scripts/manage.py crawl    # 采集
-python tests/test_static.py       # 静态自检 106 项（CI 跑这个）
+python tests/test_static.py       # 静态自检 113 项（CI 跑这个）
 python tests/run_ui_test.py       # 交互回归 175 项（需 Chrome/Edge）
 ```
 

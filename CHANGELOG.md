@@ -19,6 +19,16 @@
 - `do_add` 的导入状态写死成 `ok`，有空错误时也报成功；改为 `partial`
 - README 与 DEPLOY 承诺「进程重启会补跑没跑的更新」，代码里并没有实现，现已实现（记录在
   `data/last_update.txt`）
+- **客户端断连刷屏**：浏览器取消加载时 `wfile.write` 抛 `BrokenPipeError`，每个被中断的请求
+  都打一整段堆栈。现在 `_send` / `_crash` / 服务器 `handle_error` 都识别
+  `BrokenPipe / ConnectionReset / ConnectionAborted` 并静默收工
+- **库只读时 `/admin` 直接 500**：`db_stats()` 里查 `ingest_runs` 没兜住「表不存在」，
+  库只读 → schema 建不成 → 一进后台就 `no such table`。现在逐表兜底
+- **只读库的错误信息等于没说**：`attempt to write a readonly database` 不给路径也不给解法。
+  启动时先探测可写性（目录 / 文件 / 真写一次事务），不可写就打印现成的
+  `sudo chown -R USER:USER data`，并跳过注定失败的自动采集与定时任务
+- **`/admin` 顶部红色横幅**：库不可写 / 缺核心表时直接说清楚，按钮也不会白跑一趟
+- 口令文件写不进时，启动日志里的「来源」不再谎称已落盘，改为「临时生成（未落盘，重启失效）」
 
 ### Changed
 

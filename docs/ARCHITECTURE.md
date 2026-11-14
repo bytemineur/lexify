@@ -143,7 +143,7 @@ lexify/
 ├─ docs/                    文档 + 设计资源
 │  ├─ ARCHITECTURE.md · DATABASE.md · DEPLOY.md
 │  └─ assets/                 字标 / favicon / svg
-└─ tests/                   静态自检 106 项 + 交互回归 175 项
+└─ tests/                   静态自检 113 项 + 交互回归 175 项
 ```
 
 **三条分层规则**（违反了就是架构坏了）：

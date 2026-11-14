@@ -254,6 +254,18 @@ def check_docs():
                       ("_is_local", "本机判定"), ("X-Forwarded-For", "反代识别")):
         ok("main.py 保留 %s 鉴权入口（%s）" % (need, why), need in main_py)
 
+    # 线上真实踩过的两个坑：客户端断连刷堆栈、data/ 属主被 sudo 改成 root
+    ok("main.py 静默客户端断连（CLIENT_GONE）",
+       "CLIENT_GONE" in main_py and "except CLIENT_GONE" in main_py)
+    ok("main.py 覆盖 handle_error，不再打断连堆栈", "def handle_error" in main_py)
+    ok("main.py 启动前探测库可写", "def db_writable" in main_py)
+    ok("只读库时给现成的修复命令", "chown -R" in main_py)
+    ok("后台页有不可写横幅", "{notice}" in main_py and "notice=notice" in main_py)
+
+    manage_py = read(os.path.join(ROOT, "scripts", "manage.py"))
+    ok("manage.py 写库前探测权限", "def writable_check" in manage_py)
+    ok("manage.py 把 readonly 换成听得懂的话", "只读" in manage_py)
+
     compat = os.path.join(ROOT, "scripts", "compat.py")
     ok("跨平台底座 scripts/compat.py 存在", os.path.exists(compat))
     for f in ("scripts/manage.py", "scripts/build_data.py", "scripts/publish_data.py"):
