@@ -5,12 +5,12 @@ import sys
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for p in (ROOT, os.path.join(ROOT, "src")):
+for p in (ROOT, os.path.join(ROOT, "hearing")):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import parser_hearing as ph
-from sources import court_schedule
+from hearing import parser as ph
+from hearing import court_schedule
 
 
 class TestCause(unittest.TestCase):

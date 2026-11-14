@@ -3,11 +3,13 @@
 
 逆向自站内 DataTables 接口 initNoticeList（Liferay serveResource）。
 返回 JSON：iTotalRecords / data[]，每条含 noticeContent 全文。
+
+两个看板共用：悬赏按关键词检（court_name 空），开庭按「公告类型 × 法院」
+检（notice_type_val + court_name）。这里只做「取数」，不做任何看板判断。
 """
 import json
 
-import config
-from http_client import Http
+from . import config
 
 BASE = "https://rmfygg.court.gov.cn"
 LIST_URL = (BASE + "/web/rmfyportal/noticeinfo"
@@ -78,9 +80,9 @@ def iter_keyword(http, keyword, max_pages=200, notice_type=None,
     """逐页产出公告 dict（原始字段）。
 
     court_name 走服务端 courtParam，支持「罗湖区」这类简称模糊匹配，
-    用于把一个法院的公告一次性拉全（深圳专项按法院采集走这条路）。
+    用于把一个法院的公告一次性拉全（地区专项按法院采集走这条路）。
     """
-    notice_type = config.NOTICE_TYPE_CODE if notice_type is None else notice_type
+    notice_type = "" if notice_type is None else notice_type
     total = None
     start = 0
     pages = 0

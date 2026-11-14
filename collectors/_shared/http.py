@@ -15,7 +15,7 @@ import urllib.parse
 import urllib.request
 import zlib
 
-import config
+from . import config
 
 
 def _ssl_context(relaxed):
@@ -114,14 +114,11 @@ class Http:
                     return self._decode(resp)
             except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
                 last_err = e
-                # 站点用了非常规 TLS 曲线：记住该主机，改用宽松上下文重试
                 if not relaxed and self._is_ssl_err(e):
                     self.hosts_ok.add(host)
                     continue
                 code = getattr(e, "code", None)
                 if code == 403:
-                    # 冷却一次仍 403，说明是 IP 级限流，再等也没用，直接放弃，
-                    # 免得每个关键词都白等 35 秒把整轮采集拖成几十分钟
                     if self.blocked.get(host):
                         raise RuntimeError(f"403 限流（{host}），本轮跳过") from e
                     self.blocked[host] = True

@@ -10,8 +10,8 @@
   起诉状副本及开庭传票      —— 起诉材料与传票一并送达，被告刚被起诉
 """
 import config
-import parser_hearing
-from sources import rmfygg
+import parser as parser_hearing
+from _shared import rmfygg
 
 SOURCE = "rmfygg_kt"
 
