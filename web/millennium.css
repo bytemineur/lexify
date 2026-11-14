@@ -18,15 +18,35 @@
    ============================================================ */
 
 /* ── 0. 字体 ─────────────────────────────────────── */
+/* 全部自托管，不依赖操作系统装了什么字体：
+   - Instrument Sans：英文与数字（拉丁）
+   - Noto Serif SC   ：中文标题（只子集了页面用到的 597 个汉字）
+   - Noto Sans SC    ：中文正文与表格（子集了 UI + 数据里出现的 3,113 个汉字）
+   两个中文字体都是 SIL OFL 许可，可随源码分发。 */
 @font-face {
   font-family: "Instrument Sans";
-  src: url("./fonts/InstrumentSans-Regular.ttf") format("truetype");
+  src: url("./fonts/InstrumentSans-Regular.woff2") format("woff2");
   font-weight: 400; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: "Instrument Sans";
-  src: url("./fonts/InstrumentSans-Bold.ttf") format("truetype");
+  src: url("./fonts/InstrumentSans-Bold.woff2") format("woff2");
   font-weight: 600 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Noto Serif SC";
+  src: url("./fonts/NotoSerifSC-600-subset.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Noto Sans SC";
+  src: url("./fonts/NotoSansSC-400-subset.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Noto Sans SC";
+  src: url("./fonts/NotoSansSC-600-subset.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
 }
 
 /* ── 1. 令牌 ─────────────────────────────────────── */
@@ -64,10 +84,10 @@ html[data-mlp] {
   --shadow-lg: none;
   --raised: none;
 
-  --font-serif: "Noto Serif SC", "STSong", "Songti SC", "SimSun",
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun",
                 "Source Han Serif SC", Georgia, "Times New Roman", serif;
-  --font-sans: "Instrument Sans", "PingFang SC", "Hiragino Sans GB",
-               "Microsoft YaHei", "Noto Sans SC", -apple-system, sans-serif;
+  --font-sans: "Instrument Sans", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB",
+               "Microsoft YaHei", -apple-system, sans-serif;
 }
 
 /* 夜间：同一套蓝反印成夜蓝 */
