@@ -308,6 +308,36 @@
     for (var j = 0; j < secs.length; j++) io.observe(secs[j]);
   }
 
+  /* ---------------- 滚动进入动效 ----------------
+     首页各板块/卡片进入视口时上移淡入，隔开区块层次。
+     只做一次（进入后不移除 .in），尊重 prefers-reduced-motion。 */
+  function initReveal() {
+    if (!("IntersectionObserver" in window)) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // 要揭示的元素：hero 之外的区块标题 + 各卡片 + 数据源条目
+    var targets = document.querySelectorAll(
+      "main section .sec-head, main .card, main .src, main .soon-grid .soon-card");
+    if (!targets.length) return;
+
+    targets.forEach(function (el, i) {
+      el.classList.add("reveal");
+      // 同组内小步交错（按序 40ms），制造"依次进入"的节奏但不拖沓
+      el.style.animationDelay = (i % 6) * 40 + "ms";
+    });
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          en.target.classList.add("in");
+          io.unobserve(en.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: "0px 0px -8% 0px" });
+
+    targets.forEach(function (el) { io.observe(el); });
+  }
+
   /* ---------------- 启动 ---------------- */
   function boot() {
     initTheme();
@@ -316,6 +346,7 @@
     initPreview();
     initSearch();
     initNav();
+    initReveal();
   }
 
   if (document.readyState === "loading") {

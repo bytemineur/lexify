@@ -5,9 +5,9 @@
    它的语言只有四件事，我逐条照做：
 
    1. 白底 + 一种电光蓝 #1434CB，全站没有第二个颜色。
-   2. 标题用衬线大字（他们用一款高对比衬线；中文这里用
-      本机的 Noto Serif SC / 思源宋体，大字号下形态最好）。
-   3. 正文与导航用无衬线，字号偏大、行距松。
+   2. 标题与正文全用非衬线（Instrument Sans + Noto Sans SC），
+      靠字重区分层级，走苹果官网的科技感。
+   3. 正文与导航用非衬线，字号偏大、行距松。
    4. 背景一片「会变形的短划线场」——由流场生成的图形，
       不是渐变也不是图片。见 field.svg（生成脚本 gen-field.js）。
 
@@ -20,9 +20,8 @@
 /* ── 0. 字体 ─────────────────────────────────────── */
 /* 全部自托管，不依赖操作系统装了什么字体：
    - Instrument Sans：英文与数字（拉丁）
-   - Noto Serif SC   ：中文标题（只子集了页面用到的 597 个汉字）
-   - Noto Sans SC    ：中文正文与表格（子集了 UI + 数据里出现的 3,113 个汉字）
-   两个中文字体都是 SIL OFL 许可，可随源码分发。 */
+   - Noto Sans SC    ：中文标题与正文（子集了 UI + 数据里出现的 3,113 个汉字）
+   两个字体都是 SIL OFL 许可，可随源码分发。 */
 @font-face {
   font-family: "Instrument Sans";
   src: url("./fonts/InstrumentSans-Regular.woff2") format("woff2");
@@ -32,11 +31,6 @@
   font-family: "Instrument Sans";
   src: url("./fonts/InstrumentSans-Bold.woff2") format("woff2");
   font-weight: 600 700; font-style: normal; font-display: swap;
-}
-@font-face {
-  font-family: "Noto Serif SC";
-  src: url("./fonts/NotoSerifSC-600-subset.woff2") format("woff2");
-  font-weight: 600; font-style: normal; font-display: swap;
 }
 @font-face {
   font-family: "Noto Sans SC";
@@ -54,8 +48,11 @@ html[data-mlp] {
   color-scheme: light;
 
   --blue: #1434CB;
-  --blue-72: rgba(20, 52, 203, 0.72);
-  --blue-56: rgba(20, 52, 203, 0.56);
+  /* 正文/次要文字原用半透明蓝（rgba(…,0.72/0.56)）叠在白底上，
+     11–13px 小字的对比度分别只有约 4.0 / 3.1，够不到 WCAG AA 的 4.5:1。
+     改成同色相的不透明深色，文字对比达标，视觉仍是同一套电光蓝。 */
+  --blue-72: #2742B8;
+  --blue-56: #3A47A8;
   --blue-18: rgba(20, 52, 203, 0.18);
   --blue-10: rgba(20, 52, 203, 0.10);
   --blue-05: rgba(20, 52, 203, 0.05);
@@ -84,8 +81,6 @@ html[data-mlp] {
   --shadow-lg: none;
   --raised: none;
 
-  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun",
-                "Source Han Serif SC", Georgia, "Times New Roman", serif;
   --font-sans: "Instrument Sans", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB",
                "Microsoft YaHei", -apple-system, sans-serif;
 }
@@ -118,10 +113,10 @@ html[data-mlp] body {
 
 html[data-mlp] .wrap { width: min(1200px, 100% - 80px); }
 
-/* 衬线只给：刊名、大标题、大数字 */
+/* 标题/刊名/大数字统一非衬线，靠字重 600 与字号拉开层级 */
 html[data-mlp] :where(.brand-text strong, .hero-title, .sec-head h2, .bhead h1,
   .ticker dt, .kpis .kpi b, .metrics b, .modal-h h3, .foot-brand strong) {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 600;
 }
 
@@ -143,7 +138,7 @@ html[data-mlp] .brand { gap: 0; }
 html[data-mlp] .logo { display: none; }
 html[data-mlp] .brand-text strong {
   font-size: 25px; font-weight: 600; letter-spacing: -0.01em; text-transform: lowercase;
-  color: var(--blue); font-family: var(--font-serif);
+  color: var(--blue); font-family: var(--font-sans);
 }
 html[data-mlp] .brand-text em { display: none; }
 html[data-mlp] .nav { gap: 0; }

@@ -15,6 +15,15 @@
     });
   }
 
+  // 详情弹窗 kv 值默认按纯文本转义，只有显式 raw() 包过的标记才会当作受信 HTML。
+  // 这把「谁负责转义」从「每个 render 各自记得」收紧成「引擎默认转义、信任点显式声明」。
+  function raw(html) {
+    var s = new String(html == null ? "" : html);   // 装箱对象才能挂 __lexRaw 标记
+    s.__lexRaw = true;
+    return s;
+  }
+  function isRaw(v) { return v != null && v.__lexRaw === true; }
+
   function num(v) {
     var n = parseFloat(v);
     return isNaN(n) ? null : n;
@@ -50,7 +59,7 @@
   }
 
   // 页面配置里也要用这几个工具（渲染列、拼金额），统一下发
-  window.LexUtil = { esc: esc, num: num, money: money, daysFrom: daysFrom };
+  window.LexUtil = { esc: esc, num: num, money: money, daysFrom: daysFrom, raw: raw };
 
   /* ============================================================ */
   window.LexBoard = function (CFG) {
@@ -65,6 +74,7 @@
       days: "",         // 日期预设 key
       amountMin: null,
       amountMax: null,
+      ratioMin: null,   // 悬赏比例下限（%），供「比例 N% 及以上」这类预设用
       flags: {},        // bool facet
       q: "",
       sortKey: CFG.sort.key,
@@ -265,6 +275,11 @@
         if (state.amountMax != null && a > state.amountMax) return false;
       }
 
+      if (state.ratioMin != null) {
+        var rt = num(r.ratio);
+        if (rt == null || rt < state.ratioMin) return false;
+      }
+
       for (i = 0; i < CFG.facets.length; i++) {
         f = CFG.facets[i];
         if (f.type !== "bool" || !state.flags[f.key]) continue;
@@ -305,9 +320,12 @@
         var sorted = c.key === state.sortKey;
         var arrow = sorted ? (state.sortDir === "asc" ? "▲" : "▼") : "";
         var w = c.w ? ' style="width:' + c.w + '"' : "";
-        return '<th class="' + (c.sortable === false ? "" : "sortable ") +
+        var sortable = c.sortable !== false;
+        // 可排序列做成可聚焦的“排序按钮”，键盘用户也能排序；aria-sort 宣告当前方向
+        var ariaSort = sorted ? (state.sortDir === "asc" ? " aria-sort=\"ascending\"" : " aria-sort=\"descending\"") : "";
+        return '<th class="' + (sortable ? "sortable " : "") +
                (sorted ? "sorted " : "") + (c.cls || "") + '"' + w +
-               (c.sortable === false ? "" : ' data-k="' + c.key + '"') + ">" +
+               (sortable ? ' data-k="' + c.key + '" tabindex="0" role="button"' + ariaSort : "") + ">" +
                esc(c.label) + '<span class="ar">' + arrow + "</span></th>";
       }).join("") + "</tr>";
 
@@ -323,10 +341,11 @@
         if (rb) rb.addEventListener("click", function () { resetAll(); });
       } else {
         tbody.innerHTML = pageRows.map(function (r, i) {
-          return '<tr data-i="' + (start + i) + '">' + COLS.map(function (c) {
-            var content = c.render ? c.render(r) : esc(r[c.key] == null ? "—" : r[c.key]);
-            return "<td" + (c.cls ? ' class="' + c.cls + '"' : "") + ">" + content + "</td>";
-          }).join("") + "</tr>";
+          return '<tr data-i="' + (start + i) + '" tabindex="0" role="button" aria-label="查看详情">' +
+                 COLS.map(function (c) {
+                   var content = c.render ? c.render(r) : esc(r[c.key] == null ? "—" : r[c.key]);
+                   return "<td" + (c.cls ? ' class="' + c.cls + '"' : "") + ">" + content + "</td>";
+                 }).join("") + "</tr>";
         }).join("");
       }
 
@@ -497,6 +516,7 @@
       state.days = "";
       state.amountMin = null;
       state.amountMax = null;
+      state.ratioMin = null;
       state.flags = {};
       state.q = "";
       state.page = 1;
@@ -517,13 +537,23 @@
     var NOTE_EMPTY = "原文链接指向源站详情页。部分站点有 Web 应用防火墙，短时间多次访问可能返回 403 拦截页，" +
       "换个时段再试。";
 
+    var _lastFocus = null;   // 打开弹窗前聚焦的元素，关闭时还原焦点
+
+    function closeModal() {
+      $("modal").hidden = true;
+      if (_lastFocus && typeof _lastFocus.focus === "function") {
+        _lastFocus.focus();
+        _lastFocus = null;
+      }
+    }
+
     function openDetail(r) {
       var d = CFG.detail(r);
       $("mTitle").textContent = d.title || "";
       $("mSub").textContent = d.sub || "";
 
       var html = '<dl class="kv">' + d.kv.map(function (x) {
-        return "<dt>" + esc(x[0]) + "</dt><dd>" + x[1] + "</dd>";
+        return "<dt>" + esc(x[0]) + "</dt><dd>" + (isRaw(x[1]) ? x[1] : esc(x[1])) + "</dd>";
       }).join("") + "</dl>";
 
       var body = r.body || "";
@@ -552,10 +582,20 @@
       }
 
       var link = $("mLink");
-      if (r.url) { link.href = r.url; link.style.display = ""; }
-      else link.style.display = "none";
+      // 只允许 http/https，挡掉 javascript: / data: 这类可由数据注入的协议。
+      if (r.url && /^https?:\/\//i.test(String(r.url))) {
+        link.href = r.url;
+        link.style.display = "";
+      } else {
+        link.style.display = "none";
+      }
 
       $("modal").hidden = false;
+      _lastFocus = document.activeElement;
+      var focusTarget = $("modal").querySelector(".modal-x") ||
+                        $("modal").querySelector("[data-close]") ||
+                        $("modal");
+      if (focusTarget && typeof focusTarget.focus === "function") focusTarget.focus();
     }
 
     function copyText(s) {
@@ -607,24 +647,44 @@
     }
 
     /* ---------------- 事件 ---------------- */
+    function toggleSort(k) {
+      if (state.sortKey === k) state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+      else {
+        state.sortKey = k;
+        var col = CFG.columns.filter(function (c) { return c.key === k; })[0];
+        state.sortDir = (col && col.firstDir) || "desc";
+      }
+      state.page = 1;
+      apply();
+    }
+
     function bind() {
       $("thead").addEventListener("click", function (e) {
         var th = e.target.closest("th.sortable");
         if (!th) return;
-        var k = th.dataset.k;
-        if (state.sortKey === k) state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
-        else {
-          state.sortKey = k;
-          var col = CFG.columns.filter(function (c) { return c.key === k; })[0];
-          state.sortDir = (col && col.firstDir) || "desc";
-        }
-        state.page = 1;
-        apply();
+        toggleSort(th.dataset.k);
+      });
+      // 键盘：可排序列聚焦后 Enter / Space 切换排序
+      $("thead").addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        var th = e.target.closest("th.sortable");
+        if (!th) return;
+        e.preventDefault();
+        toggleSort(th.dataset.k);
       });
 
       $("tbody").addEventListener("click", function (e) {
         var tr = e.target.closest("tr[data-i]");
         if (!tr) return;
+        var r = ROWS[parseInt(tr.dataset.i, 10)];
+        if (r) openDetail(r);
+      });
+      // 键盘：行聚焦后 Enter / Space 打开详情
+      $("tbody").addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        var tr = e.target.closest("tr[data-i]");
+        if (!tr) return;
+        e.preventDefault();
         var r = ROWS[parseInt(tr.dataset.i, 10)];
         if (r) openDetail(r);
       });
@@ -650,11 +710,11 @@
 
       $("modal").addEventListener("click", function (e) {
         if (e.target.hasAttribute("data-close") || e.target.classList.contains("modal-mask")) {
-          $("modal").hidden = true;
+          closeModal();
         }
       });
       document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && !$("modal").hidden) $("modal").hidden = true;
+        if (e.key === "Escape" && !$("modal").hidden) closeModal();
       });
     }
 

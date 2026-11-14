@@ -571,7 +571,6 @@ svg { display: block; }
 .m-tender { --mc: var(--m-tender); }
 .m-hearing { --mc: var(--m-hearing); }
 .m-bounty { --mc: var(--m-bounty); }
-.card-glow { display: none; }
 
 .card-top { display: flex; gap: 14px; margin-bottom: 20px; }
 
@@ -877,5 +876,24 @@ svg { display: block; }
   @keyframes rise {
     from { transform: translateY(8px); }
     to { transform: none; }
+  }
+}
+
+/* ============================================================
+   滚动进入：让首页板块之间不再一马平川。
+   用 animation（而非 transition）触发，避免与 .card 自身的
+   border-color 过渡、以及与 millennium 主题的其它过渡冲突。
+   由 app.js 的 initReveal() 用 IntersectionObserver 加 .in 类触发；
+   无 JS 时 .reveal 类根本不会加上，内容照常可见。
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { opacity: 0; }
+  .reveal.in {
+    opacity: 1;
+    animation: revealIn .72s cubic-bezier(.22,1,.36,1) both;
+  }
+  @keyframes revealIn {
+    from { opacity: 0; transform: translateY(24px) scale(.99); }
+    to   { opacity: 1; transform: none; }
   }
 }

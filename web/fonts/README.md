@@ -7,15 +7,13 @@
 |---|---|---|---|
 | `InstrumentSans-Regular.woff2` | 英文与数字正文 | 拉丁 | 27 KB |
 | `InstrumentSans-Bold.woff2` | 英文加粗 | 拉丁 | 27 KB |
-| `NotoSerifSC-600-subset.woff2` | 中文标题（hero、区块小标题、详情弹窗标题） | UI + 数据里的 3,113 个汉字 | 607 KB |
 | `NotoSansSC-400-subset.woff2` | 中文正文与表格 | UI + 数据里的 3,113 个汉字 | 461 KB |
-| `NotoSansSC-600-subset.woff2` | 中文加粗（标签、按钮） | UI 文案 597 字 | 109 KB |
-| `PlayfairDisplay-700.woff2` | 品牌字标「lexify」的源文件 | 拉丁 | 23 KB |
+| `NotoSansSC-600-subset.woff2` | 中文加粗（标题、大数字、标签、按钮） | UI 文案 597 字 | 109 KB |
 
-运行时总共加载约 **1.2 MB** 字体，一次加载后长期缓存。
+运行时总共加载约 **600 KB** 字体，一次加载后长期缓存。
 
-> 衬线为什么要覆盖数据字符集：详情弹窗的标题（`.modal-h h3`）显示的是公司名 / 案件名，
-> 属于数据文字。只覆盖 UI 文案的话，弹窗里会出现「一半子集衬线、一半系统字体」的混排。
+> 全站已改为非衬线（对齐苹果官网的科技感）。原 `NotoSerifSC-600-subset.woff2`
+> 与 `PlayfairDisplay-700.woff2` 不再被 CSS 引用，保留仅作历史备份，可安全删除。
 
 ## 为什么是子集
 

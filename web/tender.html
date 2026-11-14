@@ -79,7 +79,7 @@
   </div>
 </main>
 
-<div class="modal" id="modal" hidden>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="modal-mask" data-close></div>
   <div class="modal-box">
     <div class="modal-h">
@@ -102,7 +102,7 @@
 <script>
 (function () {
   var U = window.LexUtil;
-  var esc = U.esc, money = U.money;
+  var esc = U.esc, money = U.money, raw = U.raw;
 
   // 采集器 id → 平台名，和 collectors/tender/configs/sites/*.yaml 的 name 一致。
   // 详情里直接显示 cmhk / csg 这种内部编号，看的人不知道是哪个平台。
@@ -313,22 +313,23 @@
       if (d != null) due += "（" + (d < 0 ? "已截止" : d + " 天后截止") + "）";
       var amt = "未披露";
       if (r.amount) {
-        amt = "<b>" + esc(money(r.amount)) + "</b>（" +
-              Math.round(r.amount).toLocaleString("zh-CN") + " 元）";
+        amt = raw("<b>" + esc(money(r.amount)) + "</b>（" +
+              Math.round(r.amount).toLocaleString("zh-CN") + " 元）");
       }
+      var dueHtml = raw(esc(due) + (r.dueRaw ? '<span class="t-sub">原文：' + esc(r.dueRaw) + "</span>" : ""));
       return {
         title: r.title || "招标公告",
         sub: (r.org || "") + (r.type ? " · " + r.type : ""),
         kv: [
-          ["采购人", esc(r.org || "未披露")],
-          ["代理机构", esc(r.agency || "—")],
+          ["采购人", r.org || "未披露"],
+          ["代理机构", r.agency || "—"],
           ["预算金额", amt],
-          ["投标截止", esc(due) + (r.dueRaw ? '<span class="t-sub">原文：' + esc(r.dueRaw) + "</span>" : "")],
-          ["公告类型", esc(r.type || "—")],
-          ["行业", esc(r.cat || "—")],
-          ["地区", esc((r.prov || "") + (r.city ? " " + r.city : ""))],
-          ["发布日期", esc(r.pub || "—")],
-          ["数据源", esc(srcLabel(r.src))]
+          ["投标截止", dueHtml],
+          ["公告类型", r.type || "—"],
+          ["行业", r.cat || "—"],
+          ["地区", (r.prov || "") + (r.city ? " " + r.city : "")],
+          ["发布日期", r.pub || "—"],
+          ["数据源", srcLabel(r.src)]
         ]
       };
     }

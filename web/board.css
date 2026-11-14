@@ -236,10 +236,11 @@
   font: inherit;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  outline: 0;
+  outline: none;
   transition: border-color .14s cubic-bezier(.22,1,.36,1);
 }
 .nrange input:focus { border-color: var(--accent); }
+.nrange input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .nrange span { font-size: 11.5px; color: var(--text-3); }
 
 /* 工具行 */
@@ -282,6 +283,7 @@
               box-shadow .14s cubic-bezier(.22,1,.36,1);
 }
 .tsearch input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tsearch input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tsearch input::placeholder { color: var(--text-3); }
 
 .sel {
@@ -293,9 +295,10 @@
   font: inherit;
   font-size: 12.5px;
   cursor: pointer;
-  outline: 0;
+  outline: none;
 }
 .sel:focus { border-color: var(--accent); }
+.sel:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .tcount {
   font-size: 12px;
@@ -378,6 +381,7 @@ table.list thead th {
 }
 table.list thead th.sortable { cursor: pointer; user-select: none; }
 table.list thead th.sortable:hover { color: var(--text); }
+table.list thead th.sortable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 table.list thead th .ar {
   display: inline-block;
   margin-left: 4px;
@@ -391,6 +395,7 @@ table.list thead th.sorted .ar { opacity: 1; color: var(--accent-ink); }
 table.list tbody tr { border-bottom: 1px solid var(--border); }
 table.list tbody tr:last-child { border-bottom: 0; }
 table.list tbody tr:hover { background: var(--surface-2); }
+table.list tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--surface-2); }
 table.list td {
   padding: 10px 12px;
   vertical-align: top;

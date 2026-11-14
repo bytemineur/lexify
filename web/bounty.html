@@ -79,7 +79,7 @@
   </div>
 </main>
 
-<div class="modal" id="modal" hidden>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="modal-mask" data-close></div>
   <div class="modal-box">
     <div class="modal-h">
@@ -102,7 +102,7 @@
 <script>
 (function () {
   var U = window.LexUtil;
-  var esc = U.esc, money = U.money;
+  var esc = U.esc, money = U.money, raw = U.raw;
 
   var TYPE_LABEL = { property: "财产线索", whereabouts: "下落线索", both: "财产+下落", unknown: "未注明" };
 
@@ -130,7 +130,7 @@
       if (d != null) {
         if (d < 0) sub = '<span class="days past">悬赏已到期</span>';
         else if (d <= 30) sub = '<span class="days week">' + d + " 天后到期</span>";
-        else sub = "有效至 " + r.vto;
+        else sub = "有效至 " + esc(r.vto);
       }
     }
     return head + '<span class="t-sub">' + sub + "</span>";
@@ -253,7 +253,7 @@
       {
         label: "比例 10% 及以上",
         test: function (r) { return r.ratio != null && r.ratio >= 10; },
-        apply: function (st) { st.multi.type = {}; }
+        apply: function (st) { st.ratioMin = 10; }
       },
       {
         label: "深圳 · 中院与各区法院",
@@ -292,22 +292,22 @@
       var row = function (k, v) { return [k, v]; };
       var reward = "未披露";
       if (r.est) {
-        reward = "<b>" + esc(money(r.est)) + "</b>（" +
-                 Math.round(r.est).toLocaleString("zh-CN") + " 元）";
+        reward = raw("<b>" + esc(money(r.est)) + "</b>（" +
+                 Math.round(r.est).toLocaleString("zh-CN") + " 元）");
       }
       var kv = [
-        row("被执行人", esc(r.debtor || "未识别") + " " + typeTag(r.type)),
-        row("执行法院", esc(r.court || "—")),
-        row("执行案号", esc(r.caseNo || "—")),
-        row("执行标的", r.subject ? "<b>" + esc(money(r.subject)) + "</b>（" +
-            Math.round(r.subject).toLocaleString("zh-CN") + " 元）" : "未披露"),
+        row("被执行人", raw(esc(r.debtor || "未识别") + " " + typeTag(r.type))),
+        row("执行法院", r.court || "—"),
+        row("执行案号", r.caseNo || "—"),
+        row("执行标的", r.subject ? raw("<b>" + esc(money(r.subject)) + "</b>（" +
+            Math.round(r.subject).toLocaleString("zh-CN") + " 元）") : "未披露"),
         row("悬赏比例", r.ratio == null ? "—" : (Math.round(r.ratio * 10) / 10) + "%"),
-        row("封顶金额", r.cap ? esc(money(r.cap)) : "未设"),
-        row("固定赏金", r.fixed ? esc(money(r.fixed)) : "—"),
+        row("封顶金额", r.cap ? money(r.cap) : "未设"),
+        row("固定赏金", r.fixed ? money(r.fixed) : "—"),
         row("预估赏金", reward),
         row("悬赏期限", (r.vfrom || "—") + " 至 " + (r.vto || "未注明")),
-        row("发布日期", esc(r.pub || "—")),
-        row("联系电话", esc(r.phone || "公告未披露")),
+        row("发布日期", r.pub || "—"),
+        row("联系电话", r.phone || "公告未披露"),
         row("数据源", r.src === "rmfygg" ? "人民法院公告网" : "法院官网")
       ];
       return {

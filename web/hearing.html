@@ -79,7 +79,7 @@
   </div>
 </main>
 
-<div class="modal" id="modal" hidden>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="modal-mask" data-close></div>
   <div class="modal-box">
     <div class="modal-h">
@@ -102,7 +102,7 @@
 <script>
 (function () {
   var U = window.LexUtil;
-  var esc = U.esc, money = U.money;
+  var esc = U.esc, money = U.money, raw = U.raw;
 
   var DEF_LABEL = { company: "企业", mixed: "企业+个人", person: "自然人", unknown: "未披露" };
 
@@ -357,8 +357,8 @@
       if (d != null) when += "（" + (d < 0 ? "已开庭" : d + " 天后") + "）";
       var amt = "未披露";
       if (r.amount) {
-        amt = "<b>" + esc(money(r.amount)) + "</b>（" +
-              Math.round(r.amount).toLocaleString("zh-CN") + " 元）";
+        amt = raw("<b>" + esc(money(r.amount)) + "</b>（" +
+              Math.round(r.amount).toLocaleString("zh-CN") + " 元）");
       }
       var srcLabel = r.src === "rmfygg_kt" ? "人民法院公告网·开庭传票"
         : r.src === "court_kt" ? "法院官网·开庭公告"
@@ -367,15 +367,15 @@
         title: r.court || "开庭公告",
         sub: [r.caseNo, r.cause].filter(Boolean).join(" · "),
         kv: [
-          ["开庭时间", esc(when) + (r.est ? ' <span class="tag warn">推算</span>' : "")],
-          ["法庭", esc(r.room || "—")],
-          ["案由", esc(r.cause || "未识别") + (r.group ? ' <span class="tag">' + esc(r.group) + "</span>" : "")],
-          ["原告", esc(r.plaintiff || "未披露")],
-          ["被告", esc(r.defendant || "未披露") + " " + defTag(r.defType)],
+          ["开庭时间", raw(esc(when) + (r.est ? ' <span class="tag warn">推算</span>' : ""))],
+          ["法庭", r.room || "—"],
+          ["案由", raw(esc(r.cause || "未识别") + (r.group ? ' <span class="tag">' + esc(r.group) + "</span>" : ""))],
+          ["原告", r.plaintiff || "未披露"],
+          ["被告", raw(esc(r.defendant || "未披露") + " " + defTag(r.defType))],
           ["涉案金额", amt],
-          ["公告类型", esc(r.ntype || "—")],
-          ["发布日期", esc(r.pub || "—")],
-          ["数据源", esc(srcLabel)]
+          ["公告类型", r.ntype || "—"],
+          ["发布日期", r.pub || "—"],
+          ["数据源", srcLabel]
         ]
       };
     }
