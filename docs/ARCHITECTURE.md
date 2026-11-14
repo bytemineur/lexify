@@ -63,8 +63,9 @@
 ```
 python scripts/manage.py crawl
    │
-   ├─ 招标：collectors/tender/crawl.py   ─┐
-   └─ 法院：collectors/court/cli.py      ─┴──►  直接写 data/lexify.db
+   ├─ 招标：collectors/tender/crawl.py     ─┐
+   ├─ 悬赏：collectors/bounty/cli.py       ─┤
+   └─ 开庭：collectors/hearing/cli.py      ─┴──►  直接写 data/lexify.db
    │
    ▼
 去重靠唯一键（同一个库，没有中间库、没有搬运步骤）：
@@ -118,7 +119,16 @@ GitHub（数据快照进仓库，库文件不进）
 
 ```
 lexify/
-├─ main.py                ← 唯一入口：站点 + /admin + 定时任务（一个进程）
+├─ main.py                ← 入口胶水：import server.cli::main，行为不变
+├─ server/                ← HTTP 与后台包：一个进程拆成职责单一的模块
+│  ├─ config.py            路径 / 常量 / 口令
+│  ├─ web.py               Handler + 静态服务 + 路由（唯一碰 HTTP 协议的模块）
+│  ├─ auth.py              后台鉴权判定与 403 页
+│  ├─ admin.py             后台管理页渲染
+│  ├─ docs.py              项目文档（Markdown 渲染 + 实时表结构）
+│  ├─ jobs.py              后台任务 / 定时更新 / 补跑
+│  ├─ db.py                数据库探测与只读统计
+│  └─ cli.py               main() 参数与启动装配
 ├─ data/
 │  ├─ schema.sql            建表语句（六张主表 + 采集器两张日志表）
 │  ├─ lexify.db             ★ 唯一事实源（不进 git）
@@ -126,13 +136,17 @@ lexify/
 │  └─ last_update.txt       上次成功更新的时间，用于重启补跑（不进 git）
 │
 ├─ collectors/              ① 采集层：只写库，不认识页面
+│  ├─ _shared/                法院看板共用基础设施（http / regions / courts / rmfygg）
 │  ├─ tender/                 招标（34 个站点规则 + 抓取管线）
-│  └─ court/                  法院（悬赏 + 开庭，共用解析与存储）
+│  ├─ bounty/                 执行悬赏（notices 表）
+│  └─ hearing/                开庭公告（hearings 表）
 │
 ├─ scripts/                 ② 命令与导出层：只读/写库，不碰页面
 │  ├─ manage.py             crawl / add / build / push / update / stats / failures
 │  ├─ build_data.py         库 → web/data/*.js
 │  ├─ publish_data.py       数据有变化才推 GitHub
+│  ├─ dedup.py              去重键唯一定义（采集与导入共用）
+│  ├─ migrations.py         顺序化 schema 迁移（PRAGMA user_version 驱动）
 │  └─ compat.py             跨平台底座：控制台 UTF-8 / 子进程环境 / 解释器定位
 │
 ├─ web/                     ③ 展示层：只读 JS 快照，不认识库
@@ -143,7 +157,7 @@ lexify/
 ├─ docs/                    文档 + 设计资源
 │  ├─ ARCHITECTURE.md · DATABASE.md · DEPLOY.md
 │  └─ assets/                 字标 / favicon / svg
-└─ tests/                   静态自检 120 项 + 交互回归 175 项
+└─ tests/                   静态自检 + 解析器单测 + 交互回归
 ```
 
 **三条分层规则**（违反了就是架构坏了）：
@@ -153,7 +167,7 @@ lexify/
 3. **导出层是唯一的桥**——`build_data.py` 只读不写，`data/lexify.db` 是唯一事实源，
    页面上的每个数字都能追回某一行。
 
-**路由与鉴权**（都在 `main.py`）：
+**路由与鉴权**（实现都在 `server/`，入口是 `main.py`）：
 
 | 路由 | 方法 | 鉴权 |
 |---|---|---|

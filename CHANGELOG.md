@@ -5,7 +5,34 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **采集器按「一个看板一个采集器」重排**：原 `collectors/court`（一个目录塞了悬赏 + 开庭两张表 + 深圳/珠三角专项）
+  拆成 `collectors/bounty`（执行悬赏 → notices 表）与 `collectors/hearing`（开庭公告 → hearings 表），
+  共享的 http / regions / 法院名归一 / 公告网接口抽到 `collectors/_shared`。三个面板终于对应三个采集器
+- **`main.py` 拆成 `server/` 包**：1000+ 行的单文件按职责拆成 `config / web / auth / admin / docs / jobs / db / cli`
+  八个模块，`main.py` 只剩入口，命令行与行为不变
+- **定时更新现在真的采集**：`manage.py update`（无文件）之前只 `build()+push()`，导致定时任务从不采集。
+  现改为 `crawl → 导出 → 推送`，`data-freshness` 哨兵不再天天误报
+- **去重键收敛到单点**：新增 `scripts/dedup.py`，采集器（`crawler/dedupe.py`）与文件导入（`manage.py::ensure_key`）
+  共用同一个 `make_hash_key`（sha256），不再「采集 sha256 / 导入 sha1」各存一份
+- **新增 `scripts/migrations.py`**：用 `PRAGMA user_version` 驱动的顺序化 forward-only 迁移框架，
+  未来第一次结构变更「有地方写」，不用手改五处
+
 ### Fixed
+
+- **开庭采集失败被记成成功**：`court/src/pipeline.py::crawl_hearings` 捕获异常后仍无条件
+  `log_crawl(status="ok")`，改为按异常记 `status="error: …"`
+- **详情弹窗三个注入点**：`bounty.html` 两处未转义的 `r.vto`/`r.vfrom`、`board.js` 的 `link.href`
+  不校验协议；现 kv 值默认转义（`raw()` 显式声明受信 HTML），`href` 只允许 `http/https`
+- **`bounty.html` 空操作预设**：「比例 10% 及以上」的 `apply` 只写 `st.multi.type={}`（不筛选）；
+  引擎新增 `state.ratioMin`，预设现在真的按悬赏比例过滤
+- **后台口令不再落日志**：`log_message` 原来打印 `self.path`，`?token=` 明文进日志；已打码
+- **上传无体积上限**：改为默认 32 MB 上限（`LEXIFY_MAX_UPLOAD`），超限回 413；先校验扩展名再落盘、原子改名
+- **静态文件符号链接逃逸**：`_static` 补 `realpath` 校验
+- **文字对比度不足**：`--blue-56`（约 3.1:1）改为不透明深蓝（约 5:1），达标 WCAG AA
+- **键盘不可用**：可排序列与表格行补 `tabindex` + Enter/Space、`aria-sort`；弹窗补 `role="dialog"` / `aria-modal` / 焦点管理
+- 删除 4 个从未被引用的 `field-{curtain,flow,slice,universe}.js` 与死代码 `.card-glow`
 
 - **部署后 `/admin` 一律 403**：原来只按 `client_address` 判断「本机」，从公网 IP 进来永远被拒。
   现在支持「本机直连放行 + 口令（`?token=` / `X-Admin-Token` / Cookie）」，首次启动还会自动生成
@@ -61,7 +88,7 @@
 - **三个看板**：招标雷达、开庭公告、执行悬赏，纯静态页面，筛选/排序/分页/CSV 全在前端
 - **统一数据库** `data/lexify.db`（SQLite），六张主表：`tenders` / `sources` / `hearings` / `notices` /
   `ingest_runs` / `crawl_failures`，另有采集器自带的两张运行日志表
-- **采集器并入仓库**：`collectors/tender`（34 个采购站点规则）与 `collectors/court`（悬赏 + 开庭），
+- **采集器并入仓库**：`collectors/tender`（34 个采购站点规则）与 `collectors/bounty`（悬赏）、`collectors/hearing`（开庭），
   两者直接写统一库，不再有中间库
 - **单一入口** `main.py`：静态站点 + `/admin` 后台 + 每日定时更新，一个进程跑完
 - **`/admin` 数据后台**：手动采集（全部/招标/开庭/悬赏）、上传 `.db`/`.jsonl`/`.csv`、

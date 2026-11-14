@@ -153,12 +153,13 @@ python scripts/manage.py failures         # 看采集/导入失败记录
 
 ## 数据怎么来
 
-采集器在 `collectors/` 里，两个来源项目已经并进来（不再依赖外部仓库）。
+采集器在 `collectors/` 里，三个采集器已经并进来（不再依赖外部仓库）。
 
 ```
 manage.py crawl
-   ├─ collectors/tender  ─┐
-   └─ collectors/court   ─┴─→ data/lexify.db（直接写，去重靠唯一键）
+   ├─ collectors/tender   ─┐
+   ├─ collectors/bounty   ─┤
+   └─ collectors/hearing  ─┴─→ data/lexify.db（直接写，去重靠唯一键）
                                     │
                                     ▼ build
                             web/data/*.js

@@ -271,10 +271,18 @@ def check_docs():
                 stale.append("%s:%s" % (d, port))
     ok("文档里没有历史端口（8899/8080/5000/3000）", not stale, ",".join(sorted(stale)))
 
-    main_py = read(os.path.join(ROOT, "main.py"))
-    m = re.search(r'LEXIFY_PORT"\s*,\s*"(\d+)"', main_py)
+    # main.py 已拆薄：实现进 server/ 包。下面到各模块里核对这些「抄来抄去容易漂」
+    # 的关键点还在不在，而不是盯着一个薄入口文件自欺。
+    server_dir = os.path.join(ROOT, "server")
+    cli_py = read(os.path.join(server_dir, "cli.py"))
+    cfg_py = read(os.path.join(server_dir, "config.py"))
+    web_py = read(os.path.join(server_dir, "web.py"))
+    auth_py = read(os.path.join(server_dir, "auth.py"))
+    db_py = read(os.path.join(server_dir, "db.py"))
+    admin_py = read(os.path.join(server_dir, "admin.py"))
+    m = re.search(r'LEXIFY_PORT"\s*,\s*"(\d+)"', cli_py)
     default_port = m.group(1) if m else "?"
-    ok("main.py 默认端口为 8010", default_port == "8010", default_port)
+    ok("server/cli.py 默认端口为 8010", default_port == "8010", default_port)
 
     # 文档里出现的端口必须就是默认端口，别一边 8010 一边别的
     for d in docs:
@@ -286,17 +294,20 @@ def check_docs():
         ok("%s 里的端口都是 %s" % (d, default_port), not bad, ",".join(sorted(bad)))
 
     # 后台鉴权的三处入口缺一不可（缺 Cookie 就会出现「能看页面、点按钮 403」）
-    for need, why in (("X-Admin-Token", "请求头"), ("ADMIN_COOKIE", "Cookie"),
-                      ("_is_local", "本机判定"), ("X-Forwarded-For", "反代识别")):
-        ok("main.py 保留 %s 鉴权入口（%s）" % (need, why), need in main_py)
+    for need, why, where in (("X-Admin-Token", "请求头", auth_py), ("ADMIN_COOKIE", "Cookie", auth_py),
+                             ("is_local", "本机判定", auth_py), ("X-Forwarded-For", "反代识别", auth_py)):
+        ok("server/auth.py 保留 %s 鉴权入口（%s）" % (need, why), need in where)
 
     # 线上真实踩过的两个坑：客户端断连刷堆栈、data/ 属主被 sudo 改成 root
-    ok("main.py 静默客户端断连（CLIENT_GONE）",
-       "CLIENT_GONE" in main_py and "except CLIENT_GONE" in main_py)
-    ok("main.py 覆盖 handle_error，不再打断连堆栈", "def handle_error" in main_py)
-    ok("main.py 启动前探测库可写", "def db_writable" in main_py)
-    ok("只读库时给现成的修复命令", "chown -R" in main_py)
-    ok("后台页有不可写横幅", "{notice}" in main_py and "notice=notice" in main_py)
+    ok("server 静默客户端断连（CLIENT_GONE）",
+       "CLIENT_GONE" in cfg_py and "except CLIENT_GONE" in web_py and "CLIENT_GONE" in web_py)
+    ok("server 覆盖 handle_error，不再打断连堆栈", "def handle_error" in web_py)
+    ok("server 启动前探测库可写", "def db_writable" in db_py)
+    ok("只读库时给现成的修复命令", "chown -R" in cfg_py and "chown -R" in admin_py)
+    ok("后台页有不可写横幅", "{notice}" in admin_py and "notice=notice" in admin_py)
+    ok("后台口令不落日志（token 打码）", "token=" in web_py and "_redact_path" in web_py)
+    ok("上传有体积上限（Content-Length 校验）", "Content-Length" in web_py and "MAX_UPLOAD" in web_py)
+    ok("静态文件 realpath 防符号链接逃逸", "realpath" in web_py)
 
     manage_py = read(os.path.join(ROOT, "scripts", "manage.py"))
     ok("manage.py 写库前探测权限", "def writable_check" in manage_py)
@@ -307,7 +318,7 @@ def check_docs():
     for f in ("scripts/manage.py", "scripts/build_data.py", "scripts/publish_data.py"):
         s = read(os.path.join(ROOT, f))
         ok("%s 调 setup_console 钉住控制台编码" % f, "setup_console()" in s)
-    for f in ("scripts/manage.py", "main.py"):
+    for f in ("scripts/manage.py", "server/config.py"):
         s = read(os.path.join(ROOT, f))
         ok("%s 用 compat 定位解释器" % f, "python_exe" in s)
         ok("%s 子进程带 UTF-8 环境" % f, "child_env" in s)
