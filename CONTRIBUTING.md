@@ -4,19 +4,24 @@
 
 ## 先跑起来
 
+环境用 conda，Python 3.12.16（与部署一致）：
+
+```bash
+conda create -n lexify python=3.12.16 -y
+conda activate lexify
+```
+
 ```bash
 git clone https://github.com/bytemineur/lexify.git
 cd lexify
+
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple   # 只有采集需要
 
 python scripts/manage.py init      # 建库（没有数据也能起站点）
 python main.py                     # → http://127.0.0.1:8010/
 ```
 
-跑采集需要额外依赖：
-
-```bash
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
+忘了 `conda activate` 就会 `ModuleNotFoundError: sqlalchemy`，这是最常见的一次性踩坑。
 
 ## 提交之前
 

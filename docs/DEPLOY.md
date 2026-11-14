@@ -2,17 +2,45 @@
 
 > **一个 Python 进程，没有 Docker，没有 nginx。**
 > `main.py` 同时做三件事：发静态站点、提供管理后台、按点跑数据更新。
-> 只依赖 Python 3.9+ 标准库，不需要 pip install 任何东西。
+> 站点与后台只用 Python 标准库；只有**采集**需要 `requirements.txt` 里的依赖。
 > **三个平台的命令是同一套**，只是 Linux/macOS 上叫 `python3`。
 
 ---
 
-## 1. 五分钟跑起来
+## 1. 装起来（conda 三步）
+
+### 1.1 环境：Anaconda + `lexify`（Python 3.12.16）
+
+```bash
+wget -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-2024.10-1-Linux-x86_64.sh
+bash Anaconda3-2024.10-1-Linux-x86_64.sh     # 一路回车，最后问句输 yes
+source ~/.bashrc
+
+conda create -n lexify python=3.12.16 -y
+conda activate lexify
+python -V                                    # Python 3.12.16
+```
+
+macOS / Windows 跳过前两步（装 Anaconda 或 Miniconda 即可），从 `conda create` 开始。
+**后续所有命令都要求 `conda activate lexify` 已生效**——忘了激活，`import sqlalchemy` 就会失败。
+
+### 1.2 代码与依赖
 
 ```bash
 git clone https://github.com/bytemineur/lexify.git
 cd lexify
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
 
+抓有 WAF 的站点（含中国政府采购网）要用真浏览器内核，首次前再跑一次：
+
+```bash
+playwright install chromium
+```
+
+### 1.3 启动
+
+```bash
 python3 scripts/manage.py init         # 建库（第一次；跳过也行，add 会自动建）
 python3 main.py                  # → http://<服务器>:8010/
 ```
@@ -25,6 +53,9 @@ python3 main.py                  # → http://<服务器>:8010/
 
 > 端口全项目只有 **8010** 一个默认值：`main.py` 的默认参数、文档、示例命令都按这个写。
 > 要换端口只改一处——启动时加 `--port`，或设环境变量 `LEXIFY_PORT`。
+>
+> **别用 `sudo` 跑**：`sudo python3 main.py` 会让 `data/` 里所有文件属主变成 root，
+> 之后普通用户再跑就只剩 `attempt to write a readonly database`（见 §10 排错）。
 
 常用参数：
 
@@ -83,11 +114,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/srv/lexify
+User=ubuntu
+WorkingDirectory=/home/ubuntu/lexify
 Environment=LEXIFY_ADMIN_TOKEN=换成一段随机字符
 Environment=GITHUB_TOKEN=ghp_xxxx
-ExecStart=/usr/bin/python3 main.py --port 8010 --at 00:30
+# 用 conda 环境里的解释器绝对路径；systemd 不读 ~/.bashrc，也没有 activate
+ExecStart=/home/ubuntu/anaconda3/envs/lexify/bin/python main.py --port 8010 --at 00:30
 Restart=always
 RestartSec=5
 
@@ -96,12 +128,14 @@ WantedBy=multi-user.target
 ```
 
 ```bash
+conda activate lexify && which python     # 查上面那行 ExecStart 该填什么
 sudo systemctl daemon-reload
 sudo systemctl enable --now lexify
 sudo journalctl -u lexify -f          # 站点日志 + 定时任务输出都在这里
 ```
 
 `WorkingDirectory` 必须是仓库根目录——脚本里所有路径都相对它解析。
+`User` 要和 `data/` 的属主一致，否则后台写入会 `readonly`（§10 第 1 行）。
 
 ---
 

@@ -38,6 +38,9 @@
 - `LEXIFY_DB=lexify.db` 这种裸文件名不再触发 `os.makedirs("")` 异常
 - `/admin` 403 从一行纯文本改成可操作页面：说明三种口令来源，带输入框，可当场进入
 - `--admin-token` / `--admin-open` 两个命令行参数
+- **安装步骤写成 conda 三步**：Anaconda（清华镜像）→ `conda create -n lexify python=3.12.16` →
+  `pip install -r requirements.txt`（清华源）→ `python main.py`。README / DEPLOY / CONTRIBUTING 统一，
+  systemd 示例改用 conda 环境里的解释器绝对路径（systemd 不读 `~/.bashrc`）
 
 ## [0.1.0] — 2026-11-13
 

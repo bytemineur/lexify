@@ -75,19 +75,59 @@ lexify/
 
 ## 快速开始
 
-端口全项目统一用 **8010**（`main.py` 默认值、文档、示例命令都一样，不要改来改去）。
+三步：**建 conda 环境 → 装依赖 → 起服务**。端口全项目统一用 **8010**
+（`main.py` 默认值、文档、示例命令都一样，不要改来改去）。
+
+### 1. 装 Anaconda，新建 lexify 环境（Python 3.12.16）
 
 ```bash
-# 只想看页面：起个静态服务（推荐，避免个别浏览器对 file:// 的限制）
-python -m http.server 8010 --directory web
-# 打开 http://127.0.0.1:8010/
+# 下载安装器（清华镜像，国内快）
+wget -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/Anaconda3-2024.10-1-Linux-x86_64.sh
 
-# 要后台和定时更新：用主入口（同一个端口，多了 /admin 和每日更新）
+bash Anaconda3-2024.10-1-Linux-x86_64.sh    # 一路回车，最后一个问句输 yes
+source ~/.bashrc                            # 让 conda 命令进当前 shell
+
+conda create -n lexify python=3.12.16 -y
+conda activate lexify
+python -V                                   # 应输出 Python 3.12.16
+```
+
+macOS / Windows 不用这个 `.sh`：装好 Anaconda（或 Miniconda）后，直接从 `conda create` 那步开始。
+环境名保持 `lexify`，后面命令都假设已经 `conda activate lexify`——忘记激活是最常见的「装完却 import 不到」。
+
+### 2. 进项目目录，装依赖
+
+```bash
+cd lexify
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+> 站点、后台、导入导出**只用标准库**，不装也能起；`requirements.txt` 里是**采集**要用的东西
+> （sqlalchemy / httpx / parsel / pyyaml / playwright）。一次装齐，省得以后跑 `crawl` 才缺包。
+>
+> 其中 playwright 还要单独下浏览器内核（约 150 MB），只在抓有 WAF 的站点时才用得上：
+>
+> ```bash
+> playwright install chromium
+> ```
+
+### 3. 启动
+
+```bash
 python main.py
 ```
 
-**进后台**：`python main.py` 起来后打开 http://127.0.0.1:8010/admin —— 本机直连不用口令；
-从别的机器访问要带口令（首次启动自动生成在 `data/admin_token.txt`），详见下文「部署 · 后台怎么进」。
+| 地址 | 是什么 |
+|---|---|
+| http://127.0.0.1:8010/ | 站点（四个页面） |
+| http://127.0.0.1:8010/admin | 数据后台 |
+| http://127.0.0.1:8010/docs | 项目文档（含实时表结构） |
+
+**进后台**：本机直连不用口令；从别的机器访问要带口令（首次启动自动生成在 `data/admin_token.txt`），
+详见下文「部署 · 后台怎么进」。
+
+> 只想浏览仓库里已提交的数据快照，不需要后台和定时更新，也可以退化成纯静态服务：
+> `python -m http.server 8010 --directory web`。
 
 数据只有一份：`data/lexify.db`。网页读的 `web/data/*.js` 是它导出的快照。
 
@@ -98,7 +138,7 @@ python scripts/manage.py stats            # 看库里有什么
 python scripts/manage.py failures         # 看采集/导入失败记录
 ```
 
-命令在 Windows / macOS / Linux 上都一样：把 `python` 换成 `python3`（Linux/macOS）即可，
+命令在 Windows / macOS / Linux 上都一样：把 `python` 换成 `python3`（Linux/macOS 未激活 conda 时）即可，
 脚本内部用 `sys.executable` 调子进程，不依赖 cmd 批处理或 shell 管道。
 
 | 平台 | 起服务 | 跨平台细节 |
@@ -108,12 +148,6 @@ python scripts/manage.py failures         # 看采集/导入失败记录
 | Linux | `python3 main.py` | 同上；常驻建议走 systemd，见 DEPLOY |
 
 库路径默认 `data/lexify.db`，可用环境变量 `LEXIFY_DB` 改。
-
-采集依赖（只在跑 crawl 时需要）：
-
-```bash
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
 
 ---
 
@@ -275,13 +309,17 @@ python tests/run_ui_test.py bounty   # 只跑一块
 
 **一个 Python 进程，没有 Docker，没有 nginx。** `main.py` 同时做三件事：发静态站点、提供管理后台、按点跑数据更新。
 
-> 部署时**整个 `web/` 目录一起传**——里面除了页面还有 1.26 MB 字体子集。
-> 漏传字体，中文会回退成系统字体（详见 [docs/DEPLOY.md §4.5](docs/DEPLOY.md)）。
+环境、依赖、首次启动见上面的「快速开始」，服务器上只是多了**常驻**和**后台口令**两件事：
 
 ```bash
+conda activate lexify                  # 别忘了，systemd 里也一样要用这个环境
+git pull                               # 代码更新
 python3 scripts/manage.py init         # 第一次：建库（不建也行，add 会自动建）
-python3 main.py                  # → http://<服务器>:8010/
+python3 main.py                        # → http://<服务器>:8010/
 ```
+
+> 部署时**整个 `web/` 目录一起传**——里面除了页面还有 1.26 MB 字体子集。
+> 漏传字体，中文会回退成系统字体（详见 [docs/DEPLOY.md §4.5](docs/DEPLOY.md)）。
 
 | 地址 | 是什么 | 谁能进 |
 |---|---|---|
