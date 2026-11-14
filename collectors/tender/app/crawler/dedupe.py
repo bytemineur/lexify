@@ -1,8 +1,8 @@
 """去重与跨源折叠。
 
 三层设计，逐层收紧：
-  L1 主键去重  hash(normalize(title) + publish_date + purchaser) —— 本源自重复
-  L2 归一化    全角半角、空白、【】前缀统一（见 normalize.normalize_title）
+  L1 主键去重  hash(normalize(title) + publish_date + source_id) —— 本源自重复
+  L2 归一化    全角半角、空白、【】前缀统一（scripts/dedup.normalize_title）
   L3 跨源折叠  SimHash 相似度聚类 —— 同一个标转投多个平台时归为一簇
 
 L3 是 CaseBoard「跨来源重复折叠」的结构化实现：只保留最早记录对外暴露
@@ -12,12 +12,24 @@ L3 是 CaseBoard「跨来源重复折叠」的结构化实现：只保留最早�
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import sys
+
+# 去重键与标题归一化收敛到 scripts/dedup.py —— 与 scripts/manage.py 的文件导入
+# 共用同一份定义，避免「采集 sha256 / 导入 sha1」两个键互不认账、同一条存两份。
+# 向上拿到仓库根再进 scripts/（本文件在 collectors/tender/app/crawler/ 下，
+# parents[4] 正好是仓库根），不依赖调用方是否已经把 scripts 加进 sys.path。
+_SCRIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "scripts")
+_SCRIPTS = os.path.normpath(_SCRIPTS)
+if _SCRIPTS not in sys.path:
+    sys.path.insert(0, _SCRIPTS)
+
+from scripts.dedup import make_hash_key, normalize_title  # noqa: E402
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .normalize import normalize_title
 from ..models import Tender
 
 # 停用词：招标文件标题里的高频无信息词，参与相似度计算前剔除
@@ -71,17 +83,10 @@ def hamming(a: int, b: int) -> int:
     return bin(a ^ b).count("1")
 
 
-def make_hash_key(title: str, publish_date: str, source_id: str = "") -> str:
-    """L1 去重键。publish_date 传 ISO 日期字符串（YYYY-MM-DD）。
-
-    第三参数经历过一次修正：早先是 purchaser，但列表页这一栏极不稳定——
-    同一条公告两次抓取会得到『』和『或招标代理机构查询为准）』两个不同值，
-    于是算出两个 hash，同一条招标奇怪地在雷达里出现两次。
-    改用 source_id 之后：本源复抓必然同键（正确命中 L1），
-    跨源重复交给 L3 的 SimHash 折叠处理，职责清晰。
-    """
-    base = f"{normalize_title(title)}|{publish_date}|{source_id}"
-    return hashlib.sha256(base.encode("utf-8")).hexdigest()
+# make_hash_key / normalize_title 由 scripts/dedup.py 提供（见文件头 import）。
+# 这段保留历史说明：第三参数经历过一次修正，早先是 purchaser，但列表页这一栏
+# 极不稳定，同一条公告两次抓取会得到两个不同值 → 两个 hash → 雷达里出现两条；
+# 改用 source_id 后本源复抓必同键，跨源重复交给 L3 SimHash 折叠，职责清晰。
 
 
 def jaccard(a: str, b: str) -> float:

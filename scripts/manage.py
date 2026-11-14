@@ -30,11 +30,14 @@ SCHEMA = os.path.join(ROOT, "data", "schema.sql")
 if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from compat import setup_console, child_env, python_exe  # noqa: E402
+from dedup import make_hash_key        # noqa: E402  去重键唯一定义（scripts/dedup.py）
+from migrations import migrate          # noqa: E402  顺序化 schema 迁移（scripts/migrations.py）
 
 PY = python_exe()
 
 COL_TENDER = os.path.join(ROOT, "collectors", "tender")
-COL_BOUNTY = os.path.join(ROOT, "collectors", "court")
+COL_BOUNTY = os.path.join(ROOT, "collectors", "bounty")
+COL_HEARING = os.path.join(ROOT, "collectors", "hearing")
 
 
 TABLES = ("tenders", "sources", "hearings", "notices")
@@ -158,13 +161,14 @@ SCHEMA_VERSION = 2
 
 
 def ensure_schema(path=None, quiet=True):
-    """幂等地把 schema 补齐：新库建全，老库补上后加的表（如 crawl_failures）。"""
+    """幂等地把 schema 补齐：新库建全，老库补上后加的表，再套用顺序化迁移。"""
     path = path or DB
     ensure_parent(path)
     try:
         conn = sqlite3.connect(path)
         with open(SCHEMA, encoding="utf-8") as f:
             conn.executescript(f.read())
+        migrated = migrate(conn, SCHEMA_VERSION)
         conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
         conn.commit()
     except sqlite3.OperationalError as e:
@@ -184,7 +188,9 @@ def ensure_schema(path=None, quiet=True):
         except Exception:
             pass
     if not quiet:
-        print("schema 已就绪：%s（版本 %d）" % (path, SCHEMA_VERSION))
+        msg = "schema 已就绪：%s（版本 %d%s）" % (path, SCHEMA_VERSION,
+                "，已迁移 " + ",".join(migrated) if migrated else "")
+        print(msg)
 
 
 def record_failure(board, source, reason, stage="", detail="", run_id=""):
@@ -231,8 +237,13 @@ def ensure_key(table, row):
         if not row.get("title"):
             return False
         if not row.get("hash_key"):
-            row["hash_key"] = sha1("%s|%s|%s" % (row.get("title"), row.get("purchaser"),
-                                                 (row.get("publish_time") or "")[:10]))
+            # 与采集器（crawler/dedupe.py）同用 scripts/dedup.py 里的 make_hash_key，
+            # 保证「文件导入」与「采集入库」算出同一个键，才能真正互相去重。
+            row["hash_key"] = make_hash_key(
+                row.get("title"),
+                (row.get("publish_time") or row.get("publish_date") or "")[:10],
+                row.get("source_id") or "",
+            )
         # 库里 source_id 是 NOT NULL，但外部 CSV / JSONL 普遍不带这个字段。
         # 不兜底的话每条都会撞 NOT NULL 约束被跳过，导入「看起来成功、实际 0 条」，
         # 而且只报一句 NOT NULL constraint failed，没人知道该怎么补。
@@ -411,8 +422,8 @@ def _run_stream(label, args, cwd, env=None, on_line=None):
 def do_crawl(only="", limit=0, pages=1, sites="", rebuild=True):
     """采集器直接写统一库 → 重新导出。失败记进 crawl_failures。
 
-    采集器不再产出自己的库：两个模块都通过环境变量指到 data/lexify.db，
-    省掉「先写自己的库、再搬进来」这一步。
+    三个采集器（tender / bounty / hearing）各自独立，通过环境变量指到
+    data/lexify.db，省掉「先写自己的库、再搬进来」这一步。
     """
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     env = dict(os.environ)
@@ -426,8 +437,8 @@ def do_crawl(only="", limit=0, pages=1, sites="", rebuild=True):
                      + (["--limit", str(limit)] if limit else [])
                      + (["--sites", sites] if sites else [])))
     if only in ("", "hearing"):
-        todo.append(("开庭公告", "hearing", COL_BOUNTY,
-                     ["cli.py", "hearing", "crawl"] + (["--limit", str(limit)] if limit else [])))
+        todo.append(("开庭公告", "hearing", COL_HEARING,
+                     ["cli.py", "crawl"] + (["--limit", str(limit)] if limit else [])))
     if only in ("", "bounty"):
         todo.append(("执行悬赏", "bounty", COL_BOUNTY,
                      ["cli.py", "crawl"] + (["--limit", str(limit)] if limit else [])))
@@ -532,10 +543,13 @@ def main():
             raise SystemExit("用法：python scripts/manage.py add 数据文件")
         do_add(args.file, args.kind, args.source, rebuild=not args.no_build)
     elif args.cmd == "update":
+        # 无文件时 = 完整的一轮「日更」：采集 → 去重入库 → 导出 → 推送。
+        # 之前这里只 build()+push()，定时任务（main.py 的 run_update）永远不采集，
+        # 库里的数据不会随时间增长，data-freshness 哨兵也就天天报红。
         if args.file:
             do_add(args.file, args.kind, args.source, rebuild=True)
-        elif not build():
-            raise SystemExit("导出失败")
+        else:
+            do_crawl(args.only, args.limit, args.pages, args.sites, rebuild=True)
         print("\n推送到 GitHub…")
         push()
 
