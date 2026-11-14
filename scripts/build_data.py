@@ -20,6 +20,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "web", "data")
 DEFAULT_DB = os.environ.get("LEXIFY_DB") or os.path.join(ROOT, "data", "lexify.db")
 
+# 控制台编码在三个平台上不一致，统一交给 compat 处理（见 scripts/compat.py）
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from compat import setup_console  # noqa: E402
+
 
 BODY_LIMIT = 8000
 
@@ -308,6 +313,7 @@ def pick_sample(hearing, limit=3):
 
 def main():
     global OUT_DIR
+    setup_console()
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DEFAULT_DB, help="统一库路径，默认 data/lexify.db")
     ap.add_argument("--out", default=OUT_DIR, help="导出目录，默认 web/data（测试时可指到别处）")

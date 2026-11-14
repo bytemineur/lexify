@@ -1,8 +1,9 @@
-# 部署（Linux）
+# 部署（Linux / macOS / Windows）
 
 > **一个 Python 进程，没有 Docker，没有 nginx。**
 > `main.py` 同时做三件事：发静态站点、提供管理后台、按点跑数据更新。
 > 只依赖 Python 3.9+ 标准库，不需要 pip install 任何东西。
+> **三个平台的命令是同一套**，只是 Linux/macOS 上叫 `python3`。
 
 ---
 
@@ -13,23 +14,61 @@ git clone https://github.com/bytemineur/lexify.git
 cd lexify
 
 python3 scripts/manage.py init         # 建库（第一次；跳过也行，add 会自动建）
-python3 main.py                  # → http://<服务器>:8000/
+python3 main.py                  # → http://<服务器>:8010/
 ```
 
-| 地址 | 是什么 |
-|---|---|
-| `http://<服务器>:8000/` | 站点 |
-| `http://127.0.0.1:8000/admin` | 管理后台（**默认只允许本机访问**） |
+| 地址 | 是什么 | 谁能进 |
+|---|---|---|
+| `http://<服务器>:8010/` | 站点 | 所有人 |
+| `http://<服务器>:8010/admin` | 管理后台 | 本机直连，或带口令 |
+| `http://<服务器>:8010/docs` | 项目文档 | 所有人 |
+
+> 端口全项目只有 **8010** 一个默认值：`main.py` 的默认参数、文档、示例命令都按这个写。
+> 要换端口只改一处——启动时加 `--port`，或设环境变量 `LEXIFY_PORT`。
 
 常用参数：
 
 ```bash
-python3 main.py --port 80            # 换端口
-python3 main.py --at 03:00           # 每天 3 点更新（默认 00:30）
-python3 main.py --no-schedule        # 只当 web 服务，不跑定时
-python3 main.py --admin-only         # 只开后台，绑 127.0.0.1
-python3 main.py --run-now            # 启动时先更新一次
+python3 main.py --port 80                 # 换端口
+python3 main.py --at 03:00                # 每天 3 点更新（默认 00:30）
+python3 main.py --no-schedule             # 只当 web 服务，不跑定时
+python3 main.py --admin-only              # 只开后台，绑 127.0.0.1
+python3 main.py --admin-token 一串随机字符   # 指定后台口令
+python3 main.py --run-now                 # 启动时先更新一次
 ```
+
+### 后台为什么打不开（403）
+
+`/admin` 能触发采集、上传文件、推送仓库，所以默认只允许**本机直连**。
+从公网 IP 打开会被拦下，页面会告诉你该怎么办（不再是干巴巴一行 forbidden）。
+
+口令按顺序取，前三步命中就停：
+
+| 顺序 | 来源 | 说明 |
+|---|---|---|
+| 1 | `--admin-token` / 环境变量 `LEXIFY_ADMIN_TOKEN` | 自己指定，最推荐 |
+| 2 | `data/admin_token.txt` | 首次启动自动生成，权限 600，重启后不变 |
+| 3 | 启动日志「后台口令：…」 | 上面两个都没有时自动生成并打印 |
+
+进入方式（都行）：
+
+```bash
+# ① 贴一次就够：URL 带 token，服务端会种 Cookie（30 天），之后点按钮不会再 403
+open "http://<服务器>:8010/admin?token=口令"
+
+# ② 用 curl / 脚本：走请求头
+curl -H "X-Admin-Token: 口令" http://<服务器>:8010/admin/api/stats
+
+# ③ 压根不放公网：SSH 隧道，本地走 127.0.0.1 不需要口令
+ssh -L 8010:127.0.0.1:8010 用户@服务器
+```
+
+> **为什么以前「能看页面、一点按钮就 403」**：表单 POST 到 `/admin/crawl` 时，URL 上的
+> `?token=` 已经丢了。现在带 token 的第一次 GET 会写一个 HttpOnly Cookie，
+> 后续 POST 自动带上；退出用 `/admin/logout`。
+>
+> 只想要「谁都能进」：`--admin-open`（或 `LEXIFY_ADMIN_OPEN=1`）。仅限本机 / 内网，
+> 公网上等于把采集和推送能力交出去。
 
 ---
 
@@ -48,7 +87,7 @@ User=www-data
 WorkingDirectory=/srv/lexify
 Environment=LEXIFY_ADMIN_TOKEN=换成一段随机字符
 Environment=GITHUB_TOKEN=ghp_xxxx
-ExecStart=/usr/bin/python3 main.py --port 8000 --at 00:30
+ExecStart=/usr/bin/python3 main.py --port 8010 --at 00:30
 Restart=always
 RestartSec=5
 
@@ -73,13 +112,18 @@ sudo journalctl -u lexify -f          # 站点日志 + 定时任务输出都在�
 
 ```caddyfile
 lexify.example.com {
-    reverse_proxy 127.0.0.1:8000
+    reverse_proxy 127.0.0.1:8010
 }
 ```
 
-nginx 同理，`proxy_pass http://127.0.0.1:8000;`。
-注意反代后 `client_address` 会变成 127.0.0.1，**后台的「仅本机」限制就失效了**——
-这时必须设 `LEXIFY_ADMIN_TOKEN`，用 `/admin?token=…` 访问。
+nginx 同理，`proxy_pass http://127.0.0.1:8010;`。
+
+反代后 `client_address` 会变成 127.0.0.1，早期版本因此把「本机」判定成「所有人」——
+现在只要请求带 `X-Forwarded-For` / `X-Real-IP` / `Forwarded` / `X-Forwarded-Host` / `CF-Connecting-IP`
+任一转发头，就**不再算本机**，必须给口令。所以挂着反代后台依然是锁着的，
+记得把 `LEXIFY_ADMIN_TOKEN` 设上（或读 `data/admin_token.txt`）。
+
+反代记得传 `X-Forwarded-Proto`，否则服务端不知道外面是 HTTPS，种下的 Cookie 不会加 `Secure`。
 
 ---
 
@@ -164,9 +208,12 @@ systemctl start lexify
 | 方式 | 怎么做 |
 |---|---|
 | 定时 | `main.py` 内置，`--at 00:30` 或环境变量 `LEXIFY_UPDATE_AT` |
-| 补跑 | 进程重启后发现"今天该跑没跑"，启动即补一次 |
-| 手动（页面） | `/admin` 上两个按钮：只重建 / 重建并推送 |
+| 补跑 | 进程重启时若「今天该跑的点已过、今天还没更新过」，启动即补一次 |
+| 手动（页面） | `/admin` 上的按钮：采集 / 只重建 / 重建并推送 |
 | 手动（命令行） | `python3 scripts/manage.py update` |
+
+补跑靠 `data/last_update.txt` 记「上次成功更新的时间」——用独立文件而不是库里的 `fetched_at`，
+因为手动导入外部数据也会写库，但那不算定时任务跑过。运维时如想跳过补跑，加 `--no-schedule`。
 
 推送是**幂等**的：数据没有实质变化（只有 `generatedAt` 变了）就不产生提交。
 
@@ -191,8 +238,11 @@ cp data/lexify.db data/backup/lexify-$(date +%Y%m%d).db
 
 ## 9. 安全
 
-- **后台没有登录框**，所以默认只允许本机访问（`client_address` 是回环）。
-  要远程用，两个办法：SSH 隧道 `ssh -L 8000:127.0.0.1:8000 user@服务器`，或设 `LEXIFY_ADMIN_TOKEN`。
+- **`/admin` 没有登录框**，只有「本机直连 + 一个口令」两道。口令来源与用法见上文「后台为什么打不开」。
+  它被设计成本机运维工具，不适合长期裸露在公网；要远程就用 SSH 隧道。
+- **口令文件**是 `data/admin_token.txt`（600），已在 `.gitignore` 覆盖范围（`data/*`），不会进仓库。
+- **反代不会绕开鉴权**：带转发头的请求一律不算本机。
+- **跨站提交**会被挡：带 `Origin` 的请求必须同源，`Sec-Fetch-Site` 非 same-origin 直接 403。
 - `GITHUB_TOKEN` 放在 systemd 的 `Environment=` 里，别写进仓库。
 - `data/` 里有 `contact_phone` 等公告原文信息，**不要**推到公开仓库。
 
@@ -202,9 +252,51 @@ cp data/lexify.db data/backup/lexify-$(date +%Y%m%d).db
 
 | 现象 | 先看什么 |
 |---|---|
-| 打不开 | `journalctl -u lexify -n 50`；端口是否被占 `ss -lntp \| grep 8000` |
+| 打不开 | `journalctl -u lexify -n 50`；端口是否被占 `ss -lntp \| grep 8010` |
 | 数据没更新 | `journalctl` 里找「开始更新」；再看 `/admin` 的「最近导入」 |
-| 后台 403 | 你在远程访问但没设 `LEXIFY_ADMIN_TOKEN`；或反代没配 |
+| 后台 403 | 正常：远程访问需要口令。看 `data/admin_token.txt` 或用启动日志里那行口令，URL 加 `?token=…` |
+| 点按钮又 403 | 以前是表单 POST 丢 token 导致；现在带过 token 的会话有 Cookie，清掉 Cookie 重新 `?token=` 进一次 |
 | 定时不准 | `date` 看服务器时区；`--at` 按本地时间算 |
 | 推送失败 | token 是否过期、是否给了 Contents: Read and write |
 | 页面数据还是旧的 | 看 `web/data/hearing.js` 的修改时间，以及 `overview.js` 里的 `generatedAt` |
+| 中文变问号 / 乱码 | Windows 控制台代码页问题，`compat.setup_console()` 已处理；自建脚本请沿用 `scripts/compat.py` |
+
+---
+
+## 11. Windows / macOS
+
+同一份代码，不需要 `.bat`、不需要 `bash`、不需要 WSL：
+
+```bat
+:: Windows（cmd 里逐行敲，或写进 start.bat）
+cd lexify
+python scripts\manage.py init
+python main.py                 :: → http://127.0.0.1:8010/
+```
+
+```bash
+# macOS / Linux
+cd lexify
+python3 scripts/manage.py init
+python3 main.py
+```
+
+三个平台之间的差异，代码里已经抹平：
+
+| 容易踩的坑 | 处理方式 |
+|---|---|
+| Windows 控制台是 GBK/CP437，`print("✓")` 直接崩 | `scripts/compat.setup_console()` 启动时切代码页 65001，并把 stdout 重设成 UTF-8 |
+| 子进程输出中文乱码（父读 UTF-8，子写 GBK） | 所有子进程都带 `PYTHONIOENCODING=utf-8` / `PYTHONUTF8=1` |
+| 硬编码 `python` 在 Debian 上找不到 | 统一用 `sys.executable` 定位解释器 |
+| 路径分隔符 / 盘符 | 全部走 `os.path`；`TR_DATABASE_URL` 里把 `\` 换成 `/` 再交给 SQLAlchemy |
+| `LEXIFY_DB=lexify.db` 这种裸文件名 | 建库前用 `ensure_parent()` 兜住空 dirname，不再抛 `FileNotFoundError` |
+
+**常驻**：Linux 用 systemd（见 §2）；Windows 用「任务计划程序」建一个「计算机启动时」触发的任务，
+程序填 `python.exe` 绝对路径，参数 `main.py`，起始位置填仓库根目录；macOS 用 `launchd` 或 `nohup`。
+
+**两个 Unix 专用的小脚本**（不影响主流程，Windows 上可跳过）：
+`collectors/tender/scripts/backup_db.sh`、`pack.sh`。备份可直接用 `manage.py init --force` 自带的备份逻辑，
+或手动复制 `data/backup/`。
+
+**采集依赖**：`pip install -r requirements.txt` 三个平台通用；playwright 装完还要
+`python -m playwright install chromium`（三个平台都是这条，只是解释器名不同）。

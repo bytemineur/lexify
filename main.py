@@ -3,7 +3,7 @@
 
 不依赖 nginx、不依赖 Docker、不依赖第三方库，Linux 上装个 Python 3.9+ 就能跑：
 
-    python main.py                       # http://0.0.0.0:8000
+    python main.py                       # http://0.0.0.0:8010
     python main.py --port 80             # 换端口
     python main.py --at 03:00            # 每天几点更新（默认 00:30）
     python main.py --no-schedule         # 只当 web 服务用
@@ -22,12 +22,13 @@ import html
 import json
 import os
 import re
-import socket
+import secrets
 import sqlite3
 import subprocess
 import sys
 import threading
 import time
+import traceback
 import urllib.parse
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -36,8 +37,21 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(ROOT, "web")
 UPLOAD_DIR = os.path.join(ROOT, "data", "uploads")
 DB = os.environ.get("LEXIFY_DB") or os.path.join(ROOT, "data", "lexify.db")
-PY = sys.executable
+
+# scripts/ 里放的是同一套工具（manage / build_data / publish_data / compat），
+# 加进 sys.path 才能 import，也才能保证「后台调脚本」和「命令行跑脚本」用同一份兼容层。
+SCRIPTS = os.path.join(ROOT, "scripts")
+if SCRIPTS not in sys.path:
+    sys.path.insert(0, SCRIPTS)
+from compat import setup_console, child_env, python_exe, describe as compat_describe  # noqa: E402
+
+PY = python_exe()
+
 ADMIN_TOKEN = os.environ.get("LEXIFY_ADMIN_TOKEN", "")
+# 显式放弃防护（内网/单机玩具部署用）。默认 False，公网部署不要开。
+ADMIN_OPEN = (os.environ.get("LEXIFY_ADMIN_OPEN", "") or "").lower() in ("1", "true", "yes", "on")
+TOKEN_FILE = os.path.join(ROOT, "data", "admin_token.txt")
+ADMIN_COOKIE = "lexify_admin"
 
 MIME = {
     ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -92,13 +106,40 @@ def db_stats():
 def sh(args, timeout=1800):
     try:
         p = subprocess.run([PY] + args, cwd=ROOT, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=timeout)
+                           encoding="utf-8", errors="replace", timeout=timeout,
+                           env=child_env())
         return p.returncode == 0, ((p.stdout or "") + (p.stderr or "")).strip()[-8000:]
     except subprocess.TimeoutExpired:
         return False, "超时（%d 秒）" % timeout
+    except OSError as e:
+        # Windows 上少见的坑：解释器路径带空格但被拆开、杀软拦截子进程。
+        # 报清楚比抛栈好排查。
+        return False, "启动子进程失败：%s（解释器 %s）" % (e, PY)
 
 
 # ────────────────────────────── 定时更新 ──────────────────────────────
+LAST_UPDATE_FILE = os.path.join(ROOT, "data", "last_update.txt")
+
+
+def read_last_update():
+    """上次成功更新的时间。独立存文件而不是猜库里的 fetched_at：
+    导入外部数据也会写库，但那不算「今天的定时更新跑过了」。"""
+    try:
+        with open(LAST_UPDATE_FILE, encoding="utf-8") as f:
+            return datetime.strptime(f.read().strip(), "%Y-%m-%d %H:%M")
+    except (OSError, ValueError):
+        return None
+
+
+def write_last_update():
+    try:
+        os.makedirs(os.path.dirname(LAST_UPDATE_FILE), exist_ok=True)
+        with open(LAST_UPDATE_FILE, "w", encoding="utf-8") as f:
+            f.write(datetime.now().strftime("%Y-%m-%d %H:%M"))
+    except OSError:
+        pass
+
+
 def next_run(at_hhmm, now=None):
     now = now or datetime.now()
     hh, mm = [int(x) for x in at_hhmm.split(":")]
@@ -106,11 +147,28 @@ def next_run(at_hhmm, now=None):
     return t if t > now else t + timedelta(days=1)
 
 
+def catch_up_needed(at_hhmm):
+    """今天该跑的点已经过了、但今天还没更新过 → 需要补一次。
+
+    服务器半夜重启（或断电）时最有用：不然要等到明天同一时刻才更新。
+    README 里承诺过这个行为，这里让它真的成立。
+    """
+    now = datetime.now()
+    hh, mm = [int(x) for x in at_hhmm.split(":")]
+    sched = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    if now < sched:
+        return False
+    last = read_last_update()
+    return last is None or last < sched
+
+
 def run_update():
     print("[%s] 开始更新" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"), flush=True)
     ok, out = sh(["scripts/manage.py", "update"])
     print(out, flush=True)
     print("[%s] 更新结束（%s）" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ok" if ok else "失败"), flush=True)
+    if ok:
+        write_last_update()
     return ok
 
 
@@ -145,7 +203,7 @@ def start_job(label, args):
         try:
             p = subprocess.Popen([PY] + args, cwd=ROOT, stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT, text=True, encoding="utf-8",
-                                 errors="replace", bufsize=1)
+                                 errors="replace", bufsize=1, env=child_env())
             for line in p.stdout:
                 line = line.rstrip("\n")
                 if line.startswith("FAIL|"):
@@ -179,6 +237,82 @@ def job_html():
             (head, html.escape(JOB["label"]), JOB["started"], JOB["ended"], html.escape(tail)))
 
 
+# ────────────────────────────── 后台口令 ──────────────────────────────
+def load_admin_token():
+    """确定后台口令：环境变量 > data/admin_token.txt > 首次自动生成。
+
+    为什么要自动生成：/admin 默认只允许本机访问，部署到服务器后从公网打开
+    必然 403，而大多数人是先撞上 403 才去翻文档的。这里生成一个随机口令落到
+    data/admin_token.txt 并打印到启动日志——既不用改环境变量就能立刻进后台，
+    又不至于像「放开所有人」那样把采集/上传/推送全暴露出去。
+
+    返回 (token, 来源说明)。
+    """
+    global ADMIN_TOKEN
+    if ADMIN_TOKEN:
+        return ADMIN_TOKEN, "环境变量 LEXIFY_ADMIN_TOKEN"
+    if os.path.exists(TOKEN_FILE):
+        try:
+            t = open(TOKEN_FILE, encoding="utf-8").read().strip()
+            if t:
+                ADMIN_TOKEN = t
+                return t, TOKEN_FILE
+        except OSError:
+            pass
+    t = secrets.token_urlsafe(24)
+    try:
+        os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
+        with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+            f.write(t + "\n")
+        try:
+            os.chmod(TOKEN_FILE, 0o600)      # Windows 上无效果，不报错即可
+        except OSError:
+            pass
+    except OSError as e:
+        print("⚠ 后台口令写不进 %s（%s），本次仅在进程内有效" % (TOKEN_FILE, e))
+    ADMIN_TOKEN = t
+    return t, "自动生成 → %s" % TOKEN_FILE
+
+
+DENY_PAGE = """<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>后台需要口令 · Lexify</title>
+<style>
+body{margin:0;padding:56px 24px;font:14px/1.8 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+color:#111;background:#fff}
+.box{max-width:560px;margin:0 auto}
+h1{font-size:20px;font-weight:600;margin:0 0 6px}
+p{color:#555;margin:10px 0}
+code{background:#F4F4F6;padding:1px 5px;font-size:13px;font-family:ui-monospace,Consolas,monospace}
+form{margin:22px 0;padding:16px 18px;border:1px solid #E5E5E5}
+input{font:inherit;font-size:13px;padding:7px 10px;border:1px solid #ccc;width:100%;box-sizing:border-box}
+button{margin-top:10px;font:inherit;font-size:13px;padding:7px 16px;background:#1434CB;color:#fff;
+border:1px solid #1434CB;cursor:pointer}
+ol{padding-left:20px;color:#555}
+</style></head><body><div class="box">
+<h1>这个后台不对外开放</h1>
+<p>后台能触发采集、上传数据、推送仓库，所以默认只允许<b>本机直连</b>访问。
+你现在是从 <code>{ip}</code> 过来的，被拦下了。</p>
+<form method="get" action="/admin">
+  <label for="t">有口令就直接贴进来（会记进 Cookie，之后不用再带）：</label>
+  <input id="t" name="token" type="password" placeholder="后台口令" autocomplete="current-password" autofocus>
+  <button type="submit">进入后台</button>
+</form>
+<p>口令从哪来，三选一：</p>
+<ol>
+  <li>服务器上的 <code>data/admin_token.txt</code>（首次启动自动生成）</li>
+  <li>启动日志里那行「后台口令」</li>
+  <li>自己设环境变量 <code>LEXIFY_ADMIN_TOKEN</code> 后重启</li>
+</ol>
+<p>不想暴露到公网？用 SSH 隧道把端口映射到本机：
+<code>ssh -L 8010:127.0.0.1:8010 用户@服务器</code>，然后开 <code>http://127.0.0.1:8010/admin</code>。</p>
+</div></body></html>"""
+
+
+def deny_page(ip):
+    return DENY_PAGE.replace("{ip}", html.escape(ip or "未知地址"))
+
+
 # ────────────────────────────── 管理页面 ──────────────────────────────
 PAGE = """<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">{refresh}
@@ -205,7 +339,7 @@ pre{{background:#F7F7F8;border:1px solid var(--l);padding:14px;white-space:pre-w
 .err{{color:#c62828}}
 </style></head><body>
 <h1>Lexify 数据后台</h1>
-<div class="sub">统一库 <code>{db}</code> · <a href="/docs">项目文档</a> · <a href="/">← 回到站点</a></div>
+<div class="sub">统一库 <code>{db}</code> · <a href="/docs">项目文档</a> · <a href="/">← 回到站点</a>{auth}</div>
 <h2>当前数据</h2>{counts}
 <h2>手动更新数据</h2>
 <form method="post" action="/admin/crawl">
@@ -273,8 +407,14 @@ def render(output=""):
 
     out = ('<h2>执行结果</h2><pre>%s</pre>' % html.escape(output)) if output else ""
     refresh = '<meta http-equiv="refresh" content="3">' if JOB["running"] else ""
+    auth = ""
+    if ADMIN_OPEN:
+        auth = ' · <span style="color:#c62828">后台未设防</span>'
+    elif ADMIN_TOKEN:
+        auth = ' · <a href="/admin/logout">退出登录</a>'
     return PAGE.format(db=html.escape(DB), counts=counts_html, runs=runs_html,
-                       failures=fails_html, output=out, job=job_html(), refresh=refresh)
+                       failures=fails_html, output=out, job=job_html(), refresh=refresh,
+                       auth=auth)
 
 
 def parse_fields(ctype, body):
@@ -523,14 +663,91 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(data)
 
+    # ---------- 鉴权 ----------
+    def _is_local(self):
+        """本机直连才算「本机」。
+
+        只看 client_address 是不够的：挂在 Caddy / nginx 后面时，所有请求的
+        来源地址都变成 127.0.0.1，后台等于对全网敞开。所以带转发头的一律
+        不算本机，必须给口令。
+        """
+        ip = self.client_address[0] or ""
+        if ip not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            return False
+        for h in ("X-Forwarded-For", "X-Real-IP", "Forwarded",
+                  "X-Forwarded-Host", "CF-Connecting-IP"):
+            if self.headers.get(h):
+                return False
+        return True
+
+    def _given_token(self):
+        """口令可以从三个地方来：?token=（首次）、X-Admin-Token（脚本）、Cookie（日常）。"""
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        t = (q.get("token") or [""])[0]
+        if t:
+            return t, "query"
+        t = self.headers.get("X-Admin-Token") or ""
+        if t:
+            return t, "header"
+        m = re.search(r"(?:^|;\s*)%s=([^;]*)" % ADMIN_COOKIE, self.headers.get("Cookie") or "")
+        if m:
+            return urllib.parse.unquote(m.group(1)), "cookie"
+        return "", ""
+
+    def _token_ok(self, given):
+        return bool(ADMIN_TOKEN) and secrets.compare_digest(
+            given.encode("utf-8"), ADMIN_TOKEN.encode("utf-8"))
+
     def _admin_ok(self):
-        if ADMIN_TOKEN:
-            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            return q.get("token", [""])[0] == ADMIN_TOKEN or self.headers.get("X-Admin-Token") == ADMIN_TOKEN
-        return self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+        if self._is_local() or ADMIN_OPEN:
+            return True
+        if not ADMIN_TOKEN:
+            return False
+        return self._token_ok(self._given_token()[0])
+
+    def _admin_set_cookie(self):
+        """从 ?token= 进来的，把口令种进 Cookie。
+
+        这是修「带 token 能看页面、点按钮却 403」的关键：表单 POST 到
+        /admin/crawl 时 URL 上的 token 已经丢了，只有 Cookie 能跟过去。
+        """
+        given, src = self._given_token()
+        if src != "query" or not self._token_ok(given):
+            return None
+        https = (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+        return "%s=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000%s" % (
+            ADMIN_COOKIE, urllib.parse.quote(given, safe=""), "; Secure" if https else "")
+
+    def _same_origin(self):
+        """挡一下跨站表单：带了 Origin 就必须同源；没带的（curl / 老浏览器）放行。"""
+        origin = self.headers.get("Origin")
+        if origin:
+            return urllib.parse.urlparse(origin).netloc == (self.headers.get("Host") or "")
+        site = self.headers.get("Sec-Fetch-Site")
+        return site in (None, "", "same-origin", "none")
+
+    # ---------- 统一兜底 ----------
+    def _crash(self, e):
+        """兜底：任何未处理异常都回一个 500，别让浏览器只看到「空响应」。
+
+        http.server 的默认行为是断开连接，前端拿到的是 net::ERR_EMPTY_RESPONSE，
+        完全看不出哪里错了；后台调脚本、读库都可能出意外，这里至少要留下痕迹。
+        """
+        traceback.print_exc()
+        try:
+            self._send(500, "500 %s：%s（详细堆栈看服务端日志）"
+                       % (type(e).__name__, str(e)), "text/plain; charset=utf-8")
+        except Exception:
+            pass
 
     # ---------- GET ----------
     def do_GET(self):
+        try:
+            self._do_GET()
+        except Exception as e:
+            self._crash(e)
+
+    def _do_GET(self):
         path = urllib.parse.urlparse(self.path).path
 
         # 项目文档：公开，给部署后自己查用法用
@@ -544,15 +761,32 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, page)
             return self._send(404, "没有这篇文档：%s" % html.escape(path), "text/plain; charset=utf-8")
 
-        if path == "/admin" or path.startswith("/admin/"):
-            if not self._admin_ok():
-                return self._send(403, "forbidden：后台只允许本机访问，或带 ?token=")
-            return self._send(200, render())
+        # 后台接口要排在 /admin/ 前缀判断之前，否则永远进不到这里
         if path == "/admin/api/stats":
             if not self._admin_ok():
-                return self._send(403, "{}")
-            c, _ = db_stats()
-            return self._send(200, json.dumps(c, ensure_ascii=False), "application/json; charset=utf-8")
+                return self._send(403, '{"error":"forbidden"}', "application/json; charset=utf-8")
+            # db_stats() 是三元组（表计数 / 导入记录 / 待处理失败），
+            # 以前这里按二元组解包，一调就 ValueError（路由又是死的，没人发现）
+            counts, runs, fails = db_stats()
+            body = {"counts": counts or {}, "runs": runs, "failures": fails,
+                    "db": DB, "exists": os.path.exists(DB)}
+            return self._send(200, json.dumps(body, ensure_ascii=False, default=str),
+                              "application/json; charset=utf-8")
+
+        if path == "/admin/logout":
+            return self._send(302, "", "text/plain; charset=utf-8",
+                              {"Location": "/admin",
+                               "Set-Cookie": "%s=; Path=/; Max-Age=0" % ADMIN_COOKIE})
+
+        if path == "/admin" or path.startswith("/admin/"):
+            if not self._admin_ok():
+                return self._send(403, deny_page(self.client_address[0]),
+                                  extra={"Cache-Control": "no-store"})
+            extra = {"Cache-Control": "no-store"}
+            cookie = self._admin_set_cookie()
+            if cookie:
+                extra["Set-Cookie"] = cookie
+            return self._send(200, render(), extra=extra)
         if path in ("/", ""):
             path = "/index.html"
         return self._static(path)
@@ -563,7 +797,12 @@ class Handler(BaseHTTPRequestHandler):
     def _static(self, path):
         rel = urllib.parse.unquote(path).lstrip("/")
         full = os.path.normpath(os.path.join(WEB, rel))
-        if not full.startswith(WEB) or not os.path.isfile(full):
+        # 用 commonpath 而不是 startswith：否则 <仓库>/web 旁边的 web2/ 也能被读出来
+        try:
+            inside = os.path.commonpath([full, WEB]) == WEB
+        except ValueError:                     # Windows 跨盘符时 commonpath 会抛
+            inside = False
+        if not inside or not os.path.isfile(full):
             return self._send(404, "404 " + rel, "text/plain; charset=utf-8")
         ext = os.path.splitext(full)[1].lower()
         ctype = MIME.get(ext, "application/octet-stream")
@@ -589,11 +828,19 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------- POST ----------
     def do_POST(self):
+        try:
+            self._do_POST()
+        except Exception as e:
+            self._crash(e)
+
+    def _do_POST(self):
         path = urllib.parse.urlparse(self.path).path
         if not (path.startswith("/admin/")):
             return self._send(404, "not found")
         if not self._admin_ok():
-            return self._send(403, "forbidden")
+            return self._send(403, deny_page(self.client_address[0]))
+        if not self._same_origin():
+            return self._send(403, "forbidden：跨站提交被拒绝")
 
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length)
@@ -641,15 +888,25 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    setup_console()
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=int(os.environ.get("LEXIFY_PORT", "8000")))
+    ap.add_argument("--port", type=int, default=int(os.environ.get("LEXIFY_PORT", "8010")))
     ap.add_argument("--bind", default=os.environ.get("LEXIFY_BIND", "0.0.0.0"))
     ap.add_argument("--at", default=os.environ.get("LEXIFY_UPDATE_AT", "00:30"), help="每天几点更新 HH:MM")
     ap.add_argument("--no-schedule", action="store_true", help="不跑定时任务")
     ap.add_argument("--admin-only", action="store_true", help="只开后台（本地维护用）")
+    ap.add_argument("--admin-token", default="", help="后台口令（同 LEXIFY_ADMIN_TOKEN）")
+    ap.add_argument("--admin-open", action="store_true", help="不设防，允许任何人进后台（仅限内网）")
     ap.add_argument("--run-now", action="store_true", help="启动时先更新一次")
     ap.add_argument("--no-auto-crawl", action="store_true", help="库里没数据时不要自动采集")
     args = ap.parse_args()
+
+    global ADMIN_TOKEN, ADMIN_OPEN
+    if args.admin_token:
+        ADMIN_TOKEN = args.admin_token
+    if args.admin_open:
+        ADMIN_OPEN = True
+    token, token_src = load_admin_token()
 
     if not os.path.exists(DB):
         print("库里还没有数据，先建一个空的：%s" % DB)
@@ -657,7 +914,6 @@ def main():
     else:
         # 幂等补表：老库也能拿到后加的 crawl_failures
         try:
-            sys.path.insert(0, os.path.join(ROOT, "scripts"))
             import manage
             manage.ensure_schema(quiet=True)
         except Exception as e:
@@ -672,6 +928,9 @@ def main():
             start_job("首次采集", ["scripts/manage.py", "crawl"])
     elif args.run_now:
         threading.Thread(target=run_update, daemon=True).start()
+    elif not args.no_schedule and catch_up_needed(args.at):
+        print("今天 %s 的更新还没跑 → 启动即补一次" % args.at)
+        threading.Thread(target=run_update, daemon=True).start()
 
     if args.admin_only:
         args.bind = "127.0.0.1"
@@ -682,10 +941,19 @@ def main():
     srv = ThreadingHTTPServer((args.bind, args.port), Handler)
     srv.daemon_threads = True
     host = "127.0.0.1" if args.bind == "0.0.0.0" else args.bind
-    print("站点：  http://%s:%d/" % (host, args.port))
-    print("后台：  http://%s:%d/admin%s" % (host, args.port, "" if not ADMIN_TOKEN else "?token=…"))
+    base = "http://%s:%d" % (host, args.port)
+    print("站点：  %s/" % base)
+    print("后台：  %s/admin" % base)
     print("定时：  %s" % ("关闭" if args.no_schedule else "每天 " + args.at))
     print("统一库：%s" % DB)
+    print("运行于：%s（不依赖 shell，cmd / PowerShell / bash 都一样）" % compat_describe())
+    if ADMIN_OPEN:
+        print("⚠ 后台已设为不设防（--admin-open）：任何能访问端口的人都能进，别放公网")
+    elif args.bind not in ("127.0.0.1", "localhost"):
+        print("后台口令：%s" % token)
+        print("         来源：%s" % token_src)
+        print("         本机直连可直接打开；远程请在本页输入框粘贴口令，或 URL 加 ?token=…（记 30 天）")
+        print("         用 SSH 隧道更安全：ssh -L %d:127.0.0.1:%d 用户@服务器" % (args.port, args.port))
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

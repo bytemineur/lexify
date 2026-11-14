@@ -9,7 +9,7 @@ git clone https://github.com/bytemineur/lexify.git
 cd lexify
 
 python scripts/manage.py init      # 建库（没有数据也能起站点）
-python main.py                     # → http://127.0.0.1:8000/
+python main.py                     # → http://127.0.0.1:8010/
 ```
 
 跑采集需要额外依赖：
@@ -21,7 +21,7 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ## 提交之前
 
 ```bash
-python tests/test_static.py        # 86 项静态自检，秒级，必须全绿
+python tests/test_static.py        # 106 项静态自检，秒级，必须全绿
 ```
 
 有浏览器环境时再跑交互回归（需要 Chrome/Edge）：
@@ -31,6 +31,17 @@ python tests/run_ui_test.py
 ```
 
 **CI 只跑静态自检**，所以这一项无论如何要过。
+
+## 三平台注意
+
+代码要在 Windows / macOS / Linux 上都能直接跑，别引入平台假设：
+
+- **别硬编码 `python` / `python3`**：调子进程一律 `from compat import python_exe`，用 `python_exe()`
+- **别用 `shell=True`、`cmd /c`、`.sh` 管道**：所有命令用列表形式传给 `subprocess`
+- **新脚本开头调 `setup_console()`**：否则 Windows 控制台的 GBK 代码页遇到 `✓ ▶ ⚠` 会直接抛
+  `UnicodeEncodeError`；子进程环境用 `child_env()` 带上 `PYTHONIOENCODING=utf-8`
+- **路径一律走 `os.path`**，不要拼 `/` 或 `\`
+- 端口默认值只有 **8010** 一个，改端口靠 `--port` / `LEXIFY_PORT`，别在文档里写别的数
 
 ## 目录约定
 

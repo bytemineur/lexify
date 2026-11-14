@@ -119,21 +119,21 @@ GitHub（数据快照进仓库，库文件不进）
 ```
 lexify/
 ├─ main.py                ← 唯一入口：站点 + /admin + 定时任务（一个进程）
-├─ scripts/
-│  ├─ manage.py             数据命令：crawl / add / build / push / update / stats / failures
-│  ├─ build_data.py         库 → web/data/*.js
-│  └─ publish_data.py       数据有变化才推 GitHub
 ├─ data/
 │  ├─ schema.sql            建表语句（六张主表 + 采集器两张日志表）
-│  └─ lexify.db             ★ 唯一事实源（不进 git）
+│  ├─ lexify.db             ★ 唯一事实源（不进 git）
+│  ├─ admin_token.txt       后台口令（首次启动自动生成，不进 git）
+│  └─ last_update.txt       上次成功更新的时间，用于重启补跑（不进 git）
 │
 ├─ collectors/              ① 采集层：只写库，不认识页面
 │  ├─ tender/                 招标（34 个站点规则 + 抓取管线）
 │  └─ court/                  法院（悬赏 + 开庭，共用解析与存储）
 │
-├─ scripts/                 ② 导出层：只读库，不写库
-│  ├─ build_data.py           库 → web/data/*.js
-│  └─ publish_data.py         数据有变化才推 GitHub
+├─ scripts/                 ② 命令与导出层：只读/写库，不碰页面
+│  ├─ manage.py             crawl / add / build / push / update / stats / failures
+│  ├─ build_data.py         库 → web/data/*.js
+│  ├─ publish_data.py       数据有变化才推 GitHub
+│  └─ compat.py             跨平台底座：控制台 UTF-8 / 子进程环境 / 解释器定位
 │
 ├─ web/                     ③ 展示层：只读 JS 快照，不认识库
 │  ├─ *.html                  4 个页面
@@ -143,7 +143,7 @@ lexify/
 ├─ docs/                    文档 + 设计资源
 │  ├─ ARCHITECTURE.md · DATABASE.md · DEPLOY.md
 │  └─ assets/                 字标 / favicon / svg
-└─ tests/                   静态自检 86 项 + 交互回归 175 项
+└─ tests/                   静态自检 106 项 + 交互回归 175 项
 ```
 
 **三条分层规则**（违反了就是架构坏了）：
@@ -152,6 +152,22 @@ lexify/
 2. **展示层只读快照**——它不知道库在哪，`web/` 整个拷走就能独立部署。
 3. **导出层是唯一的桥**——`build_data.py` 只读不写，`data/lexify.db` 是唯一事实源，
    页面上的每个数字都能追回某一行。
+
+**路由与鉴权**（都在 `main.py`）：
+
+| 路由 | 方法 | 鉴权 |
+|---|---|---|
+| `/`、`/*.html`、`/data/*.js` | GET / HEAD | 无（gzip + 5 分钟缓存） |
+| `/docs`、`/docs/<doc>`、`/docs/schema` | GET | 无（只有文档和表结构） |
+| `/admin`、`/admin/*` | GET | 本机直连，或口令（`?token=` / `X-Admin-Token` / Cookie） |
+| `/admin/crawl`、`/admin/upload`、`/admin/rebuild` | POST | 同上 + 必须同源 |
+| `/admin/api/stats` | GET | 同上，返回 JSON |
+| `/admin/logout` | GET | 清 Cookie |
+
+「本机」的判定不只看 `client_address`：只要请求带 `X-Forwarded-For` / `X-Real-IP` / `Forwarded` /
+`X-Forwarded-Host` / `CF-Connecting-IP` 任一转发头，就说明前面有反代，一律按远程处理。
+带口令的第一次 GET 会种 HttpOnly Cookie（30 天，HTTPS 下加 `Secure`），
+因为表单 POST 带不上 URL 里的 `?token=`。
 
 **命名规则**：
 

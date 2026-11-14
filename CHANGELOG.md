@@ -5,6 +5,30 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **部署后 `/admin` 一律 403**：原来只按 `client_address` 判断「本机」，从公网 IP 进来永远被拒。
+  现在支持「本机直连放行 + 口令（`?token=` / `X-Admin-Token` / Cookie）」，首次启动还会自动生成
+  口令打印到日志，并写 `data/admin_token.txt`
+- **带 token 能看页面、点按钮却 403**：表单 POST 到 `/admin/crawl` 时 URL 上的 token 丢了。
+  现在首次带 token 的 GET 会种 HttpOnly Cookie（30 天），后续表单自动携带；新增 `/admin/logout`
+- **反代之后后台等于全开**：Caddy / nginx 后面 `client_address` 都是 127.0.0.1，旧逻辑把所有人当本机。
+  现在请求带 `X-Forwarded-For` / `X-Real-IP` / `Forwarded` 等转发头就不再算本机
+- `/admin/api/stats` 是死路由（被 `/admin/` 前缀判断吃掉），已挪到前面
+- 静态文件路径校验由 `startswith` 改为 `os.path.commonpath`，避免 `web2/` 这类同前缀目录被读出
+- `do_add` 的导入状态写死成 `ok`，有空错误时也报成功；改为 `partial`
+- README 与 DEPLOY 承诺「进程重启会补跑没跑的更新」，代码里并没有实现，现已实现（记录在
+  `data/last_update.txt`）
+
+### Changed
+
+- **端口统一为 8010**：README 的快速开始还在用 8899，和 `main.py` 默认值、部署文档不一致
+- **跨平台**：新增 `scripts/compat.py`，统一控制台 UTF-8、子进程编码环境、解释器定位（`sys.executable`）。
+  Windows 上不再因为 `print("✓")` 抛 `UnicodeEncodeError`，也不再出现「父进程按 UTF-8 读、子进程按 GBK 写」的乱码
+- `LEXIFY_DB=lexify.db` 这种裸文件名不再触发 `os.makedirs("")` 异常
+- `/admin` 403 从一行纯文本改成可操作页面：说明三种口令来源，带输入框，可当场进入
+- `--admin-token` / `--admin-open` 两个命令行参数
+
 ## [0.1.0] — 2026-11-13
 
 第一个可用的版本：三个看板 + 统一数据库 + 采集器合并。

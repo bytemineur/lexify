@@ -24,7 +24,14 @@ from datetime import datetime
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB = os.environ.get("LEXIFY_DB") or os.path.join(ROOT, "data", "lexify.db")
 SCHEMA = os.path.join(ROOT, "data", "schema.sql")
-PY = sys.executable
+
+# 直接运行（python scripts/manage.py）时 sys.path[0] 就是 scripts/；
+# 被 main.py 当模块 import 时不一定，补一下，保证 compat 在任何入口都找得到。
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from compat import setup_console, child_env, python_exe  # noqa: E402
+
+PY = python_exe()
 
 COL_TENDER = os.path.join(ROOT, "collectors", "tender")
 COL_BOUNTY = os.path.join(ROOT, "collectors", "court")
@@ -96,6 +103,18 @@ def sha1(text):
     return hashlib.sha1((text or "").encode("utf-8")).hexdigest()
 
 
+def ensure_parent(path):
+    """给库文件建好父目录。
+
+    LEXIFY_DB=lexify.db 这种「裸文件名」的写法，dirname 是空串，
+    os.makedirs("") 会抛 FileNotFoundError —— 三个平台都一样，只是 Windows 上更常见
+    （因为 PowerShell 里习惯写当前目录文件名）。
+    """
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
+
 # ────────────────────────────── 库 ──────────────────────────────
 def connect(create=False):
     if not os.path.exists(DB):
@@ -110,13 +129,13 @@ def connect(create=False):
 def init_db(force=False):
     if os.path.exists(DB) and force:
         import shutil
-        backup = os.path.join(os.path.dirname(DB), "backup")
+        backup = os.path.join(os.path.dirname(os.path.abspath(DB)), "backup")
         os.makedirs(backup, exist_ok=True)
         dst = os.path.join(backup, "lexify-%s.db" % datetime.now().strftime("%Y%m%d-%H%M%S"))
         shutil.copy2(DB, dst)
         print("已备份 → %s" % dst)
         os.remove(DB)
-    os.makedirs(os.path.dirname(DB), exist_ok=True)
+    ensure_parent(DB)
     ensure_schema()
 
 
@@ -126,7 +145,7 @@ SCHEMA_VERSION = 2
 def ensure_schema(path=None, quiet=True):
     """幂等地把 schema 补齐：新库建全，老库补上后加的表（如 crawl_failures）。"""
     path = path or DB
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    ensure_parent(path)
     conn = sqlite3.connect(path)
     with open(SCHEMA, encoding="utf-8") as f:
         conn.executescript(f.read())
@@ -183,6 +202,11 @@ def ensure_key(table, row):
         if not row.get("hash_key"):
             row["hash_key"] = sha1("%s|%s|%s" % (row.get("title"), row.get("purchaser"),
                                                  (row.get("publish_time") or "")[:10]))
+        # 库里 source_id 是 NOT NULL，但外部 CSV / JSONL 普遍不带这个字段。
+        # 不兜底的话每条都会撞 NOT NULL 约束被跳过，导入「看起来成功、实际 0 条」，
+        # 而且只报一句 NOT NULL constraint failed，没人知道该怎么补。
+        if not row.get("source_id"):
+            row["source_id"] = "manual"
     else:
         if not row.get("source"):
             return False
@@ -256,12 +280,12 @@ def read_source(path):
 # ────────────────────────────── 流水线 ──────────────────────────────
 def build(out=None):
     args = ["scripts/build_data.py"] + (["--out", out] if out else [])
-    p = subprocess.run([PY] + args, cwd=ROOT)
+    p = subprocess.run([PY] + args, cwd=ROOT, env=child_env())
     return p.returncode == 0
 
 
 def push():
-    p = subprocess.run([PY, "scripts/publish_data.py"], cwd=ROOT)
+    p = subprocess.run([PY, "scripts/publish_data.py"], cwd=ROOT, env=child_env())
     return p.returncode == 0
 
 
@@ -286,6 +310,8 @@ def do_add(path, kind="", source="", rebuild=True):
         if source:
             for r in rows:
                 r.setdefault("source", source)
+                if table == "tenders":
+                    r.setdefault("source_id", source)
 
         run = conn.execute(
             "INSERT INTO ingest_runs (started_at,kind,mode,origin,status) VALUES (?,?,?,?,?)",
@@ -304,7 +330,7 @@ def do_add(path, kind="", source="", rebuild=True):
         conn.execute("UPDATE ingest_runs SET finished_at=?,total_seen=?,inserted=?,updated=?,"
                      "skipped=?,status=?,note=? WHERE id=?",
                      (now(), len(rows), got["insert"], got["update"], got["skip"],
-                      "ok" if not errors else "ok", "; ".join(errors), run_id))
+                      "ok" if not errors else "partial", "; ".join(errors), run_id))
         conn.commit()
         for k in total:
             total[k] += got[k]
@@ -334,7 +360,7 @@ def _run_stream(label, args, cwd, env=None, on_line=None):
     if not os.path.isdir(cwd):
         print("  ✗ 找不到目录：%s" % cwd)
         return 127, []
-    p = subprocess.Popen([PY] + args, cwd=cwd, env=env, stdout=subprocess.PIPE,
+    p = subprocess.Popen([PY] + args, cwd=cwd, env=child_env(env), stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, encoding="utf-8",
                          errors="replace", bufsize=1)
     lines = []
@@ -429,6 +455,7 @@ def do_stats():
 
 
 def main():
+    setup_console()
     ap = argparse.ArgumentParser(description="Lexify 数据管理")
     ap.add_argument("cmd", choices=["init", "add", "crawl", "build", "push", "update", "stats", "failures"])
     ap.add_argument("file", nargs="?", help="add / update 时的数据文件")

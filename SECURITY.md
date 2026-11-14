@@ -16,22 +16,26 @@
 
 | 范围 | 说明 |
 |---|---|
-| `main.py` 的 `/admin` | 默认只允许本机访问；暴露到公网必须设 `LEXIFY_ADMIN_TOKEN` |
+| `main.py` 的 `/admin` | 默认只允许本机直连；公网访问需口令（`--admin-token` / `LEXIFY_ADMIN_TOKEN` / 自动生成的 `data/admin_token.txt`） |
 | `scripts/publish_data.py` | 需要 GitHub token，权限应最小化为 `Contents: Read and write` |
 | 采集器 | 只读抓取公开页面，不做登录态操作 |
 
 ## 已知设计取舍（不是漏洞）
 
-- **`/admin` 没有账号体系**：靠"只绑 127.0.0.1"或一个环境变量令牌保护。它被设计成本机运维工具，
-  不适合直接暴露在公网。
+- **`/admin` 没有账号体系**：靠「本机直连 + 一个共享口令」保护，没有多用户、没有权限分级、
+  没有审计日志。它被设计成本机运维工具，不适合当公网管理面板用。
+- **口令自动生成**：首次启动会写 `data/admin_token.txt` 并打印到日志。这是为了让部署后
+  不至于撞上 403 就卡住；口令等于后台的全部权限，泄露了就换掉文件再重启。
+- **`--admin-open` / `LEXIFY_ADMIN_OPEN=1` 会关掉全部防护**：只适合单机或隔离内网。
 - **`/docs` 公开可读**：里面只有项目文档与表结构，没有密钥。
 - **数据里有公告原文**：包含当事人名称、案号、联系电话等信息，均来自法院与采购平台的
   **公开发布**内容；请勿用于骚扰或二次贩卖。
 
 ## 部署自查清单
 
-- [ ] `.env` / token 没有进仓库（`.gitignore` 已覆盖）
+- [ ] `.env` / token 没有进仓库（`.gitignore` 已覆盖 `data/*` 与 `.env`）
 - [ ] `data/` 没有被提交（库文件高达数十 MB）
-- [ ] 公网部署时 `LEXIFY_ADMIN_TOKEN` 已设置
-- [ ] 反向代理做了 HTTPS
+- [ ] 公网部署时后台口令已确认可用，且 `data/admin_token.txt` 权限为 600
+- [ ] 没有使用 `--admin-open`
+- [ ] 反向代理做了 HTTPS，并传 `X-Forwarded-Proto`（让 Cookie 带 `Secure`）
 - [ ] 采集频率遵守来源站点限制（默认间隔 2–5 秒）

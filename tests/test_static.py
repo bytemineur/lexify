@@ -217,6 +217,54 @@ def check_shell(html_files):
     ok("无裸状态类定义（状态类必须带前缀）", not bare, ",".join(bare))
 
 
+def check_docs():
+    """文档和代码不能各说各的：端口、后台用法这类「抄来抄去」的信息最容易漂。"""
+    print("\n[5] 文档与代码一致")
+    docs = ["README.md", "CONTRIBUTING.md", "docs/DEPLOY.md", "docs/ARCHITECTURE.md",
+            "docs/DATABASE.md", "SECURITY.md"]
+    # 只看「主机:端口」形态，正文里的「8000 字」这类数字不算端口
+    PORT_RE = re.compile(r"(?:127\.0\.0\.1|localhost|0\.0\.0\.0|<服务器>|<host>):(\d{4,5})")
+
+    stale = []
+    for d in docs:
+        p = os.path.join(ROOT, d)
+        if not os.path.exists(p):
+            continue
+        for port in set(PORT_RE.findall(read(p))):
+            if port in ("8899", "8080", "5000", "3000"):
+                stale.append("%s:%s" % (d, port))
+    ok("文档里没有历史端口（8899/8080/5000/3000）", not stale, ",".join(sorted(stale)))
+
+    main_py = read(os.path.join(ROOT, "main.py"))
+    m = re.search(r'LEXIFY_PORT"\s*,\s*"(\d+)"', main_py)
+    default_port = m.group(1) if m else "?"
+    ok("main.py 默认端口为 8010", default_port == "8010", default_port)
+
+    # 文档里出现的端口必须就是默认端口，别一边 8010 一边别的
+    for d in docs:
+        p = os.path.join(ROOT, d)
+        if not os.path.exists(p):
+            continue
+        ports = set(PORT_RE.findall(read(p)))
+        bad = {x for x in ports if x != default_port}
+        ok("%s 里的端口都是 %s" % (d, default_port), not bad, ",".join(sorted(bad)))
+
+    # 后台鉴权的三处入口缺一不可（缺 Cookie 就会出现「能看页面、点按钮 403」）
+    for need, why in (("X-Admin-Token", "请求头"), ("ADMIN_COOKIE", "Cookie"),
+                      ("_is_local", "本机判定"), ("X-Forwarded-For", "反代识别")):
+        ok("main.py 保留 %s 鉴权入口（%s）" % (need, why), need in main_py)
+
+    compat = os.path.join(ROOT, "scripts", "compat.py")
+    ok("跨平台底座 scripts/compat.py 存在", os.path.exists(compat))
+    for f in ("scripts/manage.py", "scripts/build_data.py", "scripts/publish_data.py"):
+        s = read(os.path.join(ROOT, f))
+        ok("%s 调 setup_console 钉住控制台编码" % f, "setup_console()" in s)
+    for f in ("scripts/manage.py", "main.py"):
+        s = read(os.path.join(ROOT, f))
+        ok("%s 用 compat 定位解释器" % f, "python_exe" in s)
+        ok("%s 子进程带 UTF-8 环境" % f, "child_env" in s)
+
+
 def main():
     html_files = [os.path.join(WEB, p) for p in
                   ("index.html", "tender.html", "hearing.html", "bounty.html")]
@@ -229,6 +277,7 @@ def main():
     check_links(html_files)
     check_data()
     check_shell(html_files)
+    check_docs()
 
     print("\n合计 %d 项通过，%d 项失败，%d 项提醒" % (len(passes), len(fails), len(warns)))
     if fails:

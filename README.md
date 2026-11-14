@@ -59,9 +59,10 @@ lexify/
 ├─ scripts/
 │  ├─ manage.py             # 数据命令：crawl / add / build / push / update / stats / failures
 │  ├─ build_data.py         # 库 → web/data 下 4 个文件（由 manage.py 调用）
-│  └─ publish_data.py       # 数据有实质变化才推送 GitHub（由 manage.py 调用）
+│  ├─ publish_data.py       # 数据有实质变化才推送 GitHub（由 manage.py 调用）
+│  └─ compat.py             # 跨平台底座：控制台 UTF-8、子进程环境、解释器定位
 ├─ tests/
-│  ├─ test_static.py        # 静态自检 86 项：离线自洽、链接、数据一致性、类名不撞车
+│  ├─ test_static.py        # 静态自检 106 项：离线自洽、链接、数据一致性、类名不撞车
 │  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
 ├─ main.py                  # 唯一入口：站点 + 管理后台 + 定时更新
@@ -74,11 +75,19 @@ lexify/
 
 ## 快速开始
 
+端口全项目统一用 **8010**（`main.py` 默认值、文档、示例命令都一样，不要改来改去）。
+
 ```bash
-# 起个静态服务（推荐，避免个别浏览器对 file:// 的限制）
-python -m http.server 8899 --directory web
-# 打开 http://127.0.0.1:8899/
+# 只想看页面：起个静态服务（推荐，避免个别浏览器对 file:// 的限制）
+python -m http.server 8010 --directory web
+# 打开 http://127.0.0.1:8010/
+
+# 要后台和定时更新：用主入口（同一个端口，多了 /admin 和每日更新）
+python main.py
 ```
+
+**进后台**：`python main.py` 起来后打开 http://127.0.0.1:8010/admin —— 本机直连不用口令；
+从别的机器访问要带口令（首次启动自动生成在 `data/admin_token.txt`），详见下文「部署 · 后台怎么进」。
 
 数据只有一份：`data/lexify.db`。网页读的 `web/data/*.js` 是它导出的快照。
 
@@ -88,6 +97,15 @@ python scripts/manage.py add 新数据.db    # 外部数据入库（去重）+ �
 python scripts/manage.py stats            # 看库里有什么
 python scripts/manage.py failures         # 看采集/导入失败记录
 ```
+
+命令在 Windows / macOS / Linux 上都一样：把 `python` 换成 `python3`（Linux/macOS）即可，
+脚本内部用 `sys.executable` 调子进程，不依赖 cmd 批处理或 shell 管道。
+
+| 平台 | 起服务 | 跨平台细节 |
+|---|---|---|
+| Windows | `python main.py` | 启动时自动把控制台代码页切到 UTF-8，`✓ ▶ ⚠` 这类符号不会抛 `UnicodeEncodeError` |
+| macOS | `python3 main.py` | 同上，无需额外配置 |
+| Linux | `python3 main.py` | 同上；常驻建议走 systemd，见 DEPLOY |
 
 库路径默认 `data/lexify.db`，可用环境变量 `LEXIFY_DB` 改。
 
@@ -240,7 +258,7 @@ manage.py crawl
 ## 自测
 
 ```bash
-python tests/test_static.py      # 86 项，秒级，无需浏览器
+python tests/test_static.py      # 106 项，秒级，无需浏览器
 python tests/run_ui_test.py      # 175 项（三块看板各 57–59 项），无头 Chrome / Edge 点真页面
 python tests/run_ui_test.py bounty   # 只跑一块
 ```
@@ -259,15 +277,29 @@ python tests/run_ui_test.py bounty   # 只跑一块
 
 ```bash
 python3 scripts/manage.py init         # 第一次：建库（不建也行，add 会自动建）
-python3 main.py                  # → http://<服务器>:8000/
+python3 main.py                  # → http://<服务器>:8010/
 ```
 
-| 地址 | 是什么 |
-|---|---|
-| `http://<服务器>:8000/` | 站点 |
-| `http://127.0.0.1:8000/admin` | 管理后台（默认只允许本机） |
+| 地址 | 是什么 | 谁能进 |
+|---|---|---|
+| `http://<服务器>:8010/` | 站点 | 所有人 |
+| `http://<服务器>:8010/admin` | 管理后台 | 本机直连，或带口令 |
+| `http://<服务器>:8010/docs` | 项目文档（含实时表结构） | 所有人 |
 
-常用参数：`--port` / `--at 00:30` / `--no-schedule` / `--admin-only` / `--run-now`。
+**后台怎么进**（这条以前最容易卡住）：`/admin` 能采集、上传、推仓库，所以默认只允许本机直连。
+从公网打开会看到一个「需要口令」的页面，口令按顺序取：
+
+1. `--admin-token` / 环境变量 `LEXIFY_ADMIN_TOKEN`（自己指定最放心）
+2. `data/admin_token.txt`（首次启动自动生成，权限 600）
+3. 启动日志里那行「后台口令」
+
+拿到后两种任选一个：URL 加 `?token=…`，或直接贴进那个页面的输入框。
+**贴过一次会记进 Cookie（30 天）**，之后点按钮、传文件都不会再 403 —— 表单 POST 是带不上 URL 参数的，这也是之前「能打开页面但一点按钮就 403」的原因。
+
+不想把后台开在公网？用 SSH 隧道：`ssh -L 8010:127.0.0.1:8010 用户@服务器`，
+然后在本机开 `http://127.0.0.1:8010/admin`，走的是本机直连，不用口令。
+
+常用参数：`--port` / `--at 00:30` / `--no-schedule` / `--admin-only` / `--admin-token` / `--admin-open` / `--run-now`。
 常驻用 systemd，写法见 [`docs/DEPLOY.md`](docs/DEPLOY.md)。
 
 ### 为什么不再需要反代
@@ -281,12 +313,17 @@ python3 main.py                  # → http://<服务器>:8000/
 
 小团队够用。要域名或 HTTPS 就在前面挂 Caddy / nginx，`main.py` 不用改。
 
+> 挂反代后 `client_address` 全是 127.0.0.1，早期版本会把「本机」判定成所有人。
+> 现在只要请求带 `X-Forwarded-For` / `X-Real-IP` / `Forwarded` 等转发头，就**不再当作本机**，
+> 一律要口令。所以反代之后后台仍然是锁着的。
+
 ### 数据更新
 
 数据既不在镜像里，也不在构建产物里：**库是唯一事实源，`web/data/*.js` 是导出结果。**
 
-- 定时：`main.py --at 00:30`；进程重启发现今天该跑没跑，会补跑一次
-- 手动：`/admin` 上的两个按钮，或 `python3 scripts/manage.py update`
+- 定时：`main.py --at 00:30`
+- 补跑：进程重启时发现「今天该跑的点已经过去、但今天还没更新过」，启动即补一次（记录在 `data/last_update.txt`）
+- 手动：`/admin` 上的按钮，或 `python3 scripts/manage.py update`
 
 导出完浏览器刷新即可，**不需要重启进程**。
 
@@ -318,7 +355,7 @@ python3 main.py                  # → http://<服务器>:8000/
 ```bash
 python main.py                    # 起服务（站点 + /admin + 定时）
 python scripts/manage.py crawl    # 采集
-python tests/test_static.py       # 静态自检 86 项（CI 跑这个）
+python tests/test_static.py       # 静态自检 106 项（CI 跑这个）
 python tests/run_ui_test.py       # 交互回归 175 项（需 Chrome/Edge）
 ```
 

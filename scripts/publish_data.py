@@ -33,6 +33,10 @@ OWNER, REPO, BRANCH = "bytemineur", "lexify", "main"
 DATA_FILES = ["overview.js", "tender.js", "hearing.js", "bounty.js"]
 SUMMARY_FILE = "web/data/overview.js"
 
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from compat import setup_console  # noqa: E402
+
 _TS = re.compile(r'"generatedAt":"[^"]*"')
 
 
@@ -109,6 +113,7 @@ def summary_line():
 
 
 def main():
+    setup_console()
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", action="store_true", help="先跑 build_data.py")
     ap.add_argument("--dry-run", action="store_true", help="只看有没有变化，不提交")

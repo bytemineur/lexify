@@ -186,7 +186,7 @@ python scripts/manage.py add 招标.csv
 ### 3.1 从网页传（推荐给非技术同事）
 
 ```bash
-python main.py            # 打开 http://127.0.0.1:8000/admin
+python main.py            # 打开 http://127.0.0.1:8010/admin
 ```
 
 选文件 → 上传 → 页面直接显示「读多少、新增多少、更新多少」。走的是同一条 `manage.py add`。
