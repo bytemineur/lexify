@@ -149,6 +149,41 @@ lexify.db-shm    共享内存索引
 
 ---
 
+## 4.5 静态资源：`web/` 要**整目录**上传
+
+只传 html/css/js 是不够的，`web/` 里还躺着 1.26 MB 字体和首屏资源：
+
+| 目录 / 文件 | 内容 | 漏传的后果 |
+|---|---|---|
+| `web/fonts/` | 6 个 woff2，共 **1,256 KB** | 中文回退成系统字体（Linux 上常见是仿宋 / 宋体），英文变窄 |
+| `web/data/` | 4 个 js 数据快照 | 页面空白，或数字与筛选全错 |
+| `web/field.svg` | 首屏静态底图 | 无 JS 时首屏没有背景 |
+| `web/favicon-*.png` | 站点图标 | 标签页图标丢失 |
+
+同步推荐 rsync，保持目录结构、只传变化：
+
+```bash
+rsync -av --delete web/ 用户@服务器:/srv/lexify/web/
+```
+
+**验证字体到位**：
+
+```bash
+curl -I https://你的域名/fonts/NotoSerifSC-600-subset.woff2
+# 期望：200，且 Content-Type: font/woff2
+```
+
+反代 / nginx 要给 woff2 配 MIME，否则浏览器会直接丢弃字体（表现就是「字体没生效」）：
+
+```nginx
+types { font/woff2 woff2; font/ttf ttf; }
+```
+
+> `main.py` 自带正确的 MIME 表，直接用本项目的服务不会有这个问题；
+> 只有前面另挂 nginx / Caddy / 对象存储时才需要配。
+
+---
+
 ## 5. 怎么把数据传上去
 
 ### ① 后台上传（推荐，不需要命令行）

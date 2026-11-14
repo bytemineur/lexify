@@ -275,6 +275,9 @@ python tests/run_ui_test.py bounty   # 只跑一块
 
 **一个 Python 进程，没有 Docker，没有 nginx。** `main.py` 同时做三件事：发静态站点、提供管理后台、按点跑数据更新。
 
+> 部署时**整个 `web/` 目录一起传**——里面除了页面还有 1.26 MB 字体子集。
+> 漏传字体，中文会回退成系统字体（详见 [docs/DEPLOY.md §4.5](docs/DEPLOY.md)）。
+
 ```bash
 python3 scripts/manage.py init         # 第一次：建库（不建也行，add 会自动建）
 python3 main.py                  # → http://<服务器>:8010/
