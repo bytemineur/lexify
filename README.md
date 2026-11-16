@@ -1,9 +1,9 @@
-# Lexify
+# lexify
 
 [![CI](https://github.com/bytemineur/lexify/actions/workflows/ci.yml/badge.svg)](https://github.com/bytemineur/lexify/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1434CB.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-1434CB.svg)](https://www.python.org)
-[![No build step](https://img.shields.io/badge/build-none-1434CB.svg)](#技术栈)
+[![No build step](https://img.shields.io/badge/build-none-1434CB.svg)](#快速开始)
 
 **法律数据洞察平台**。把散落在法院公告网、公共资源交易平台上的公开信息，拆成可筛选的字段，还原成一张**法律服务需求地图**：谁在打官司、标的多少、谁在花钱买法律服务。
 
@@ -21,13 +21,16 @@
 
 | 看板 | 数据量 | 回答的问题 | 关键字段 |
 |---|---|---|---|
-| 招标雷达 `tender.html` | 188 条 | 哪些法律服务采购还在投标期内 | 预算、投标截止、采购人、行业、地区 |
-| 开庭公告 `hearing.html` | 5,290 条 | 哪个企业刚收到传票、还没委托律师 | 开庭时间、被告类型、案由、涉案金额、法院 |
-| 执行悬赏 `bounty.html` | 952 条 | 哪个被执行人值得提供线索 | 执行标的、悬赏比例、预估赏金、有效期 |
+| 招标雷达 `tender.html` | 1,398 条 | 哪些法律服务采购还在投标期内 | 预算、投标截止、采购人、数据类型、地区 |
+| 开庭公告 `hearing.html` | 1,224 条 | 哪个企业刚收到传票、还没委托律师 | 开庭时间、被告类型、案由、涉案金额、法院 |
+| 执行悬赏 `bounty.html` | 695 条 | 哪个被执行人值得提供线索 | 执行标的、悬赏比例、预估赏金、有效期 |
 
 > 上表是当前库的规模，**每天采集后会变**。首页的汇总数字同理，以页面实际显示为准。
+> 招标库内 1,858 条，页面 1,398 条——差的是同一公告的转载与关联条目（`is_primary` 去重后才是页面数）。
 
-首页 `index.html` 汇总三者：6,430 条结构化公告、31 个省级行政区。**首页所有数字都由 `web/data/overview.js` 驱动**，不在 HTML 里写死，数据更新后文案不会对不上。
+首页 `index.html` 汇总三者，覆盖 31 个省级行政区。**首页所有数字都由库实时驱动**（见下一节），不在 HTML 里写死，数据更新后文案不会对不上。
+
+另有 **3,067 家法院的通讯录**（名称 / 地址 / 邮编 / 电话，见 [法院通讯录](#法院通讯录)），目前只入库存表，页面尚未接入。
 
 > 首页不对外展示采集来源（哪些站点、哪些法院）。来源是平台的核心能力，页面只呈现判断结果。
 
@@ -50,16 +53,19 @@
 看起来有几千条、库里可能一条没有。现在看板页头标「**实时 · 数据库**」；
 只有后端没起或 `file://` 打开时才退回快照，并明确标「**离线快照**」——两种标注措辞不同，不混淆。
 
-**新增的三个页面**（吸收自 tender-radar）：
+**页面清单**（共 5 页）：
 
 | 页面 | 定位 |
 |---|---|
-| `dashboard.html` | 招标看板：指标条 + 发布趋势 + 即将截止 + 区域/来源分布 |
-| `radar.html` | 快捷检索：服务端筛选 + 分页 + CSV |
-| `sources.html` | 采集来源：每个源是否启用、最近运行结果、真实入库条数、失败原因 |
-| `tender.html` | 招标列表（原有）：前端筛选全量数据 + 详情弹窗 + 侧栏分布 |
+| `index.html` | 首页：hero + 三张看板卡片 + 数据挖掘定位 |
+| `tender.html` | 招标列表：前端筛选全量数据 + 详情弹窗 + 侧栏分布 |
+| `hearing.html` | 开庭公告 |
+| `bounty.html` | 执行悬赏 |
+| `radar.html` | 快捷检索：服务端筛选 + 分页 + CSV（不在首页导航里，直接访问 `/radar.html`） |
 
-三块看板共用同一套交互：左侧筛选（多选 / 日期预设 / 金额区间）、表头排序、关键词搜索（含公告正文）、分页、右侧分布面板与快捷口径、详情弹窗、CSV 导出。界面固定浅色（早期版本做过深色主题，为了减少视觉负担已移除）。
+> 早前吸收自 tender-radar 的 `dashboard.html`（招标看板）与 `sources.html`（采集来源）已**删除**：
+> 前者与 `tender.html` 的侧栏分布重复，后者把内部采集状态摊到了公开页面上。
+> 三个看板共用同一套交互：左侧筛选（多选 / 日期预设 / 金额区间）、表头排序、关键词搜索（含公告正文）、分页、右侧分布面板与快捷口径、详情弹窗、CSV 导出。界面固定浅色（早期版本做过深色主题，为了减少视觉负担已移除）。
 
 ---
 
@@ -68,38 +74,54 @@
 ```
 lexify/
 ├─ web/                     # 站点本体，纯静态，零依赖
-│  ├─ index.html            # 首页：hero + 三张看板卡片 + 数据挖掘定位 + 路线图
+│  ├─ index.html            # 首页：hero + 三张看板卡片 + 数据挖掘定位
 │  ├─ tender.html           # 三个看板页：外壳完全一致，差别只在 LexBoard({...}) 配置
 │  ├─ hearing.html
 │  ├─ bounty.html
+│  ├─ radar.html            # 快捷检索：服务端筛选 + 分页 + CSV
 │  ├─ style.css             # 基础设计系统（tokens、布局、首页）
 │  ├─ board.css             # 看板页专用（KPI、筛选器、表格、侧栏、弹窗）
-│  ├─ millennium.css        # 唯一的皮肤：电光蓝单色 + 衬线标题 + 方角 + 1px 发丝线
+│  ├─ millennium.css        # 唯一的皮肤：电光蓝单色 + 方角 + 1px 发丝线
 │  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、首屏真实记录预览、导航高亮
 │  ├─ board.js              # 看板引擎：筛选 / 排序 / 分页 / 渲染 / 导出，配置驱动
+│  ├─ radar.js  radar.css   # 快捷检索页
+│  ├─ nav-dropdown.js       # 导航二级菜单
 │  ├─ ai-chat.js            # 右下角 AI 咨询入口：SSE 流式对话，读 /api/ai/*
 │  ├─ ai-chat.css           # 咨询面板皮肤（沿用 millennium 的方角 + 发丝线）
-│  ├─ field-curtain.js      # 首屏帘子动效；field.svg 是无 JS 时的静态兜底
+│  ├─ field-*.js            # 首屏动效；field.svg 是无 JS 时的静态兜底
 │  ├─ fonts/                # 自托管字体，不引 Google Fonts
 │  ├─ favicon-32/64.png
 │  └─ data/                 # 由 scripts/manage.py 从库里导出，不要手改
 │     ├─ tender.js  hearing.js  bounty.js
 │     └─ overview.js
 ├─ docs/                    # 说明文档 + 设计资源（docs/assets/）
-├─ data/                    # data/schema.sql 进 git；data/lexify.db 不进
-├─ collectors/              # 采集器：tender-radar（招标）/ bounty-radar（法院两块）
+├─ data/                    # schema.sql 进 git；lexify.db 与采集账本不进
+├─ collectors/
+│  ├─ _shared/              # 共用基础设施：http / regions / rmfygg / court_registry …
+│  ├─ tender/               # 招标雷达（34 个站点 yaml）
+│  ├─ bounty/               # 执行悬赏 → notices
+│  ├─ hearing/              # 开庭公告 → hearings
+│  ├─ nationwide/           # 按法院遍历公告网（华南 + 江浙沪优先批次）
+│  └─ courtbook/            # 法院通讯录 → courts
 ├─ scripts/
 │  ├─ manage.py             # 数据命令：crawl / add / build / push / update / stats / failures
 │  ├─ build_data.py         # 库 → web/data 下 4 个文件（由 manage.py 调用）
 │  ├─ publish_data.py       # 数据有实质变化才推送 GitHub（由 manage.py 调用）
+│  ├─ migrations.py         # 顺序化 forward-only 迁移（PRAGMA user_version 驱动）
+│  ├─ dedup.py              # 采集与导入共用的去重键
+│  ├─ crawl_court_sites.py  # 只跑法院官网公告栏目
+│  ├─ fix_court_levels.py   # 只按名字重算法院层级，不重爬
+│  ├─ court_match.py        # 通讯录 ↔ 法院清单差异报告
+│  ├─ selftest_nationwide.py# 法院遍历采集器的离线自测
 │  └─ compat.py             # 跨平台底座：控制台 UTF-8、子进程环境、解释器定位
 ├─ tests/
-│  ├─ test_static.py        # 静态自检 120 项：离线自洽、链接、数据一致性、类名不撞车
-│  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
+│  ├─ test_static.py        # 静态自检 123 项：离线自洽、链接、数据一致性、类名不撞车
+│  ├─ run_ui_test.py        # 交互回归 177 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
 ├─ server/                  # 站点 + 后台 + AI 的 Python 实现（main.py 只是入口）
 │  ├─ ai.py                 # AI 咨询：扫项目建知识库 + DeepSeek 流式对话
-│  ├─ web.py                # 路由、静态服务、/api/ai/*
+│  ├─ data.py               # 实时读库：/api/data/* 的查询层
+│  ├─ web.py                # 路由、静态服务、/api/ai/*、/api/data/*
 │  ├─ admin.py  auth.py  docs.py  jobs.py  db.py  config.py  cli.py
 ├─ main.py                  # 唯一入口：站点 + 管理后台 + 定时更新
 └─ requirements.txt         # 采集依赖（不跑采集不用装）
@@ -165,7 +187,8 @@ python main.py
 > 只想浏览仓库里已提交的数据快照，不需要后台和定时更新，也可以退化成纯静态服务：
 > `python -m http.server 8010 --directory web`。
 
-数据只有一份：`data/lexify.db`。网页读的 `web/data/*.js` 是它导出的快照。
+数据只有一份：`data/lexify.db`。页面默认**实时读这个库**（`server/data.py` + `/api/data/*`）；
+`web/data/*.js` 是同一份数据导出的快照，只在后端不可用或 `file://` 打开时兜底。
 
 ```bash
 python scripts/manage.py crawl            # 三块一起采 → 去重入库 → 自动重新导出
@@ -228,9 +251,9 @@ manage.py crawl
 关键词只能捞到「说了什么」的公告，按法院遍历才能把某一家法院的公告整批拉全。
 
 ```bash
-python -m collectors.nationwide stats --priority   # 看清单
-python -m collectors.nationwide crawl --priority --only 开庭 --verbose
-python -m collectors.nationwide progress --priority
+python -m collectors.nationwide stats                          # 看全国法院清单
+python -m collectors.nationwide crawl --priority --only 开庭    # 只跑华南+江浙沪的开庭
+python -m collectors.nationwide progress --priority             # 断点续跑进度
 ```
 
 三个坑都是实测踩出来的，改代码时别退回去：
@@ -264,7 +287,7 @@ python scripts/crawl_court_sites.py          # 写库
 "列表 0 条"；很多法院站点用 GBK 却不声明 `charset`，`http.py` 会按 `<meta>` 再按实际
 解码成功率猜编码。
 
-### 法院通讯录（地址 / 邮编 / 电话）
+### 法院通讯录
 
 ```bash
 python -m collectors.courtbook                 # 抓全量并入库
@@ -294,7 +317,7 @@ python -m collectors.courtbook status          # 看库里现在有什么
 
 导出时做了几件必要的事：
 
-1. **招标去重**：只取 `is_primary IS NOT 0 OR cluster_id IS NULL`，把同一条公告的多次转载收敛成一条（例：库里 223 条 → 页面 188 条）。
+1. **招标去重**：只取 `is_primary IS NOT 0 OR cluster_id IS NULL`，把同一条公告的多次转载收敛成一条（当前库 1,858 条 → 页面 1,398 条）。
 2. **省份归一**：招标记「吉林」、法院记「吉林省」，不归一化会把同一个省算成两个（曾经算出 61 个省）。`norm_prov()` 统一剥掉 省 / 市 / 自治区 后缀。
 3. **正文快照**：`content` 全文最多保留 8,000 字，随数据一起下发。这样点开详情看的是本地快照，不依赖源站能不能打开。
 4. **天数重算**：`days` 不落库，页面加载时用 `daysFrom()` 现算，避免数据放几天后「还剩 3 天」变成错的。
@@ -475,9 +498,10 @@ python3 main.py
 ## 自测
 
 ```bash
-python tests/test_static.py      # 120 项，秒级，无需浏览器
-python tests/run_ui_test.py      # 175 项（三块看板各 57–59 项），无头 Chrome / Edge 点真页面
+python tests/test_static.py      # 123 项，秒级，无需浏览器
+python tests/run_ui_test.py      # 177 项（三块看板各 59 项），无头 Chrome / Edge 点真页面
 python tests/run_ui_test.py bounty   # 只跑一块
+python scripts/selftest_nationwide.py # 法院遍历采集器离线自测（翻页 / 限流 / 账本）
 ```
 
 静态检查管的是「站点还完整吗」：没有外部 CDN、所有相对链接都存在、`data/*.js` 是合法 JSON、行数等于 `meta.total`、首页汇总等于三块之和、省份没有「吉林省 / 吉林」并存、每个页面的挂载点和导航高亮齐全、**CSS 里没有会导致互相踩的裸状态类**。
@@ -554,8 +578,10 @@ python3 main.py                        # → http://<服务器>:8010/
 ## 已知边界
 
 - **原文链接可能打不开**：部分法院站点有 Web 应用防火墙，短时间内重复访问详情页会返回 403 拦截页（同一批数据的列表页却正常）。所以详情弹窗以**本地正文快照**为主，「去法院官网看原文」只是次要入口。CSV 导出同样带 `公告正文` 列。
-- **数据是快照，不是实时**：页面显示「更新于 …」，刷新数据需要重跑 `build_data.py`。某块的数据可能比另一块旧（比如悬赏的发布日整体偏早），筛选结果为 0 条时先看这个时间。
-- **筛选在前端做**：全量数据一次性下发（三块合计约 12 MB，其中开庭一块 7 MB，大头是公告正文快照），换来的是零后端、`file://` 可用、筛选零延迟。数据量再涨一个数量级就要改成服务端分页 —— 那时引擎的 `state` 结构可以原样复用，只换数据源。
+- **人民法院公告网会限流**：同一 IP 连续请求十几次后会先「全部返回 0」、再变成 403，冷却后恢复。所以按法院遍历必须低频（默认 8 秒一次）并靠 `data/crawl_ledger.json` 分批续跑，一轮跑不完 500 多家。
+- **法院通讯录约 2008–2010 年的数据**：源站仍收录芳村区、宣武区等已撤销区划，且没有南沙区、龙华区、三沙市等 2010 年后新设区划。地址电话整体可用，新设或迁址的法院需另行核对；海南在源站是空的。详见[法院通讯录](#法院通讯录)。
+- **数据时效分两层**：看板数字实时读库；`web/data/*.js` 快照只在后端不可用时兜底，此时页头会标「离线快照」。某块数据可能比另一块旧（比如悬赏的发布日整体偏早），筛选结果为 0 条时先看这个时间。
+- **筛选在前端做**：全量数据一次性下发（三块导出合计约 7 MB，大头是公告正文快照），换来的是零后端、`file://` 可用、筛选零延迟。只有 `radar.html` 走服务端筛选分页。数据量再涨一个数量级，看板引擎的 `state` 结构可以原样复用，只换数据源。
 - **不做判断**：只做结构化与排序，不给结论、不替代律师意见。
 
 ---
@@ -564,9 +590,10 @@ python3 main.py                        # → http://<服务器>:8010/
 
 | 看板 | 状态 | 数据源 |
 |---|---|---|
-| 招标雷达 | 已上线 | 全国政府采购 / 公共资源交易平台 |
+| 招标雷达 | 已上线 | 全国政府采购 / 公共资源交易平台（34 个站点） |
 | 开庭公告 | 已上线 | 法院公告网 + 地方法院排期表 |
-| 执行悬赏 | 已上线 | 法院公告网 + 地方法院官网 |
+| 执行悬赏 | 已上线 | 法院公告网 + 地方法院官网悬赏栏目 |
+| 法院通讯录 | 已入库，页面待接入 | 110.com 全国法院地址电话 |
 | 执行案件 | 规划中 | 中国执行信息公开网 |
 | 破产清算 | 规划中 | 全国企业破产重整案件信息网 |
 
@@ -579,8 +606,8 @@ python3 main.py                        # → http://<服务器>:8010/
 ```bash
 python main.py                    # 起服务（站点 + /admin + 定时）
 python scripts/manage.py crawl    # 采集
-python tests/test_static.py       # 静态自检 120 项（CI 跑这个）
-python tests/run_ui_test.py       # 交互回归 175 项（需 Chrome/Edge）
+python tests/test_static.py       # 静态自检 123 项（CI 跑这个）
+python tests/run_ui_test.py       # 交互回归 177 项（需 Chrome/Edge）
 ```
 
 贡献前请先看 [CONTRIBUTING.md](CONTRIBUTING.md)，其中写了目录约定、加看板/修采集源的步骤和提交规范。

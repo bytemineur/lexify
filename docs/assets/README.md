@@ -15,13 +15,16 @@
 
 ## 字标怎么重新生成
 
-字标是 Playfair Display 700 的 `lexify`，SVG 里以 base64 内嵌了字体（所以是**真矢量**，
+字标是 Playfair Display 700 的 `lexify`（**全小写**），SVG 里以 base64 内嵌了字体（所以是**真矢量**，
 任何环境都能正确渲染，不依赖用户装字体）。要改颜色或重排：
 
 ```bash
 # 蓝色 → 改 fill="#1434CB"；白色 → fill="#FFFFFF"
 # 字体文件在 web/fonts/PlayfairDisplay-700.woff2
 ```
+
+> 字体文件虽然已不被站点 CSS 引用（全站已改为非衬线），但**字标 SVG 仍依赖它**，
+> 所以不要从仓库里删掉 `PlayfairDisplay-700.woff2`。
 
 PNG 是从 SVG 渲染的，需要时用浏览器打开 SVG 再导出，或：
 

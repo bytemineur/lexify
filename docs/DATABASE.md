@@ -35,7 +35,11 @@ python scripts/manage.py init --force    # 备份到 data/backup/ 后重建（�
 
 ## 2. 表
 
-六张主表 + 采集器自带的两张运行日志表（`crawl_log` / `crawl_runs`，由采集器维护，lexify 只读不写）。
+七张主表 + 采集器自带的两张运行日志表（`crawl_log` / `crawl_runs`，由采集器维护，lexify 只读不写）。
+
+> schema 版本由 `PRAGMA user_version` 管理，当前 **3**。加表 / 加列时在
+> `scripts/migrations.py` 里追加一条迁移，并同步改 `data/schema.sql`；
+> `manage.py` 启动时会自动把老库补到最新。
 
 ### 2.1 `tenders` — 招标公告
 
@@ -159,6 +163,48 @@ python scripts/manage.py failures     # 看未处理的失败 + 按来源汇总
 ```sql
 UPDATE crawl_failures SET resolved = 1 WHERE source = '某个源';
 ```
+
+### 2.7 `courts` — 法院通讯录
+
+**法院名称 / 地址 / 邮编 / 电话。** 和 `hearings`、`notices` 里按名字分组的 `court`
+字段是两回事：公告每天变，法院地址几年不变，变化节奏不同，所以分表存。
+
+| 字段 | 含义 |
+|---|---|
+| name | 法院全称，如 `广州市越秀区人民法院` |
+| short | 去掉「人民法院」的短名 |
+| level | `高院` / `中院` / `基层` / `特殊`（铁路、海事、林区、油田等） |
+| province / city | 省级行政区与地市 |
+| address / postcode | 地址与邮编 |
+| phone | 源站原文，可能含「（昼）（夜）」多个号码 |
+| phone_day / phone_night | 拆出来的白天号与夜间号（夜间号缺区号时自动补上） |
+| source / source_id | 数据源标识与源站 id，唯一键是这两列 |
+| source_url | 源站详情页 |
+
+数据量大头：3,067 家法院，电话与地址各 100% 覆盖。采法见
+`collectors/courtbook/`，规则细节写在 `source.py` 顶部注释里。
+
+### 2.8 `court_coverage` — 法院通讯录覆盖台账
+
+**回答「这个源到底全不全」，而不是用一句「共 N 家」假装覆盖了全国。**
+
+| 字段 | 含义 |
+|---|---|
+| province / province_code | 省级行政区，以及源站自己的省份编号 |
+| claimed | 源站该省**声称**的条数 |
+| fetched | 实际入库条数 |
+| status | `ok` / `partial` / `missing` / `failed` / `stale` |
+| note | 一句话说明，例如「源站该省无记录」 |
+
+三条实际踩过的坑，都靠这张表留痕：
+
+- **海南**：源站该省就是空的，页内搜索也坏了（直接吐
+  `1054:Unknown column 'name'` 的 SQL 报错）。标 `missing`，不静默当成功。
+- **宁夏**：读不到「总共：N条」分页块，但照样有 18 条。判「有没有数据」要看
+  **实际行数**而不是声称数，否则会把这 18 条误标成「无记录」。
+- **整体时效**：源站约 2008–2010 年收录，仍收录芳村区、宣武区等已撤销区划，
+  且没有南沙区、龙华区、三沙市等 2010 年后新设区划。这一行标 `stale`，
+  防止页面拿它冒充现行全国法院名录。
 
 ---
 

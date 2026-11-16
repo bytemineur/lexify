@@ -130,16 +130,20 @@ lexify/
 │  ├─ db.py                数据库探测与只读统计
 │  └─ cli.py               main() 参数与启动装配
 ├─ data/
-│  ├─ schema.sql            建表语句（六张主表 + 采集器两张日志表）
+│  ├─ schema.sql            建表语句（七张主表 + 采集器两张日志表）
 │  ├─ lexify.db             ★ 唯一事实源（不进 git）
+│  ├─ crawl_ledger.json     法院遍历断点续跑账本（不进 git）
 │  ├─ admin_token.txt       后台口令（首次启动自动生成，不进 git）
 │  └─ last_update.txt       上次成功更新的时间，用于重启补跑（不进 git）
 │
 ├─ collectors/              ① 采集层：只写库，不认识页面
-│  ├─ _shared/                法院看板共用基础设施（http / regions / courts / rmfygg）
+│  ├─ _shared/                法院采集共用基础设施
+│  │                            （http / regions / courts / rmfygg / court_registry）
 │  ├─ tender/                 招标（34 个站点规则 + 抓取管线）
 │  ├─ bounty/                 执行悬赏（notices 表）
-│  └─ hearing/                开庭公告（hearings 表）
+│  ├─ hearing/                开庭公告（hearings 表）
+│  ├─ nationwide/             按法院遍历公告网（华南 + 江浙沪优先批次）
+│  └─ courtbook/              法院通讯录（courts 表）
 │
 ├─ scripts/                 ② 命令与导出层：只读/写库，不碰页面
 │  ├─ manage.py             crawl / add / build / push / update / stats / failures
@@ -147,10 +151,14 @@ lexify/
 │  ├─ publish_data.py       数据有变化才推 GitHub
 │  ├─ dedup.py              去重键唯一定义（采集与导入共用）
 │  ├─ migrations.py         顺序化 schema 迁移（PRAGMA user_version 驱动）
+│  ├─ crawl_court_sites.py  只跑法院官网公告栏目
+│  ├─ fix_court_levels.py   按名字重算法院层级，不重爬
+│  ├─ court_match.py        通讯录 ↔ 法院清单差异报告
+│  ├─ selftest_nationwide.py 法院遍历采集器离线自测
 │  └─ compat.py             跨平台底座：控制台 UTF-8 / 子进程环境 / 解释器定位
 │
-├─ web/                     ③ 展示层：只读 JS 快照，不认识库
-│  ├─ *.html                  4 个页面
+├─ web/                     ③ 展示层：实时读 /api/data/*，快照仅兜底
+│  ├─ *.html                  5 个页面
 │  ├─ board.js                看板引擎（筛选/排序/分页/导出）
 │  └─ data/*.js               导出的快照（提交进 git）
 │

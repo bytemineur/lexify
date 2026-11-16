@@ -10,10 +10,12 @@
 | `NotoSansSC-400-subset.woff2` | 中文正文与表格 | UI + 数据里的 3,113 个汉字 | 461 KB |
 | `NotoSansSC-600-subset.woff2` | 中文加粗（标题、大数字、标签、按钮） | UI 文案 597 字 | 109 KB |
 
-运行时总共加载约 **600 KB** 字体，一次加载后长期缓存。
+运行时总共加载约 **625 KB** 字体（Instrument Sans 27+27 + Noto Sans SC 461+109），一次加载后长期缓存。
 
-> 全站已改为非衬线（对齐苹果官网的科技感）。原 `NotoSerifSC-600-subset.woff2`
-> 与 `PlayfairDisplay-700.woff2` 不再被 CSS 引用，保留仅作历史备份，可安全删除。
+> 全站已改为非衬线（对齐苹果官网的科技感）。`NotoSerifSC-600-subset.woff2`（607 KB）
+> 与 `PlayfairDisplay-700.woff2`（23 KB）不再被 CSS 引用，目录里共约 1.23 MB；
+> 这两份保留仅作历史备份，可安全删除。**注意 `docs/assets/` 下的字标 SVG 仍内嵌了
+> Playfair Display**，动字标时别把这份字体删掉。
 
 ## 为什么是子集
 
@@ -29,26 +31,26 @@
 
 ## 重新生成
 
-需要本机装有 `NotoSerifSC-VF.ttf` / `NotoSansSC-VF.ttf`（Google Fonts 的思源彩云，OFL 许可）。
+需要本机装有 `NotoSansSC-VF.ttf`（Google Fonts 的思源黑体，OFL 许可）；
+要重做历史衬线备份才需要 `NotoSerifSC-VF.ttf`。
 
 ```bash
 pip install fonttools brotli
-python build-fonts.py     # 脚本内容见仓库根目录，或按下面步骤手动做
 ```
 
-手动步骤，以标题字体为例：
+手动步骤，以中文正文字体为例：
 
 ```bash
 # 1. 固定字重（系统里是可变字体）
-python -m fontTools.varLib.instancer NotoSerifSC-VF.ttf wght=600 -o serif600.ttf
+python -m fontTools.varLib.instancer NotoSansSC-VF.ttf wght=400 -o sans400.ttf
 
 # 2. 子集化 + 转 woff2
-python -m fontTools.subset serif600.ttf \
+python -m fontTools.subset sans400.ttf \
   --text-file=chars.txt --flavor=woff2 --no-hinting --layout-features=* \
-  --output-file=NotoSerifSC-600-subset.woff2
+  --output-file=NotoSansSC-400-subset.woff2
 ```
 
-`chars.txt` 的生成方式：把 `web/*.html` + `web/app.js` + `web/board.js` 里的汉字
+`chars.txt` 的生成方式：把 `web/*.html` + `web/*.js` 里的汉字
 （标题子集），以及再并上 `web/data/*.js` 里的汉字（正文子集）去重后写入。
 
 ## 许可
