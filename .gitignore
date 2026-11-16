@@ -19,14 +19,16 @@ Thumbs.db
 # 说明：web/data/*.js 是 build_data.py 生成的，但刻意提交进仓库——
 # 站点是纯静态托管，数据必须跟着代码走，「clone 下来就能跑」才成立。
 
-# data/ = 数据库目录：只有建表语句进 git，库文件、备份、上传中转都不进。
-# （库是资产，但该备份到 data/backup/ 或对象存储，不是塞进代码仓库）
+# data/ = 数据库目录：库文件与建表语句都进 git（按项目方要求随仓库分发），
+# 备份、上传中转、后台口令仍不进。
 data/*
 !data/schema.sql
+!data/lexify.db
 
 # 采集器产物（缓存与临时库）
 collectors/*/data/
 *.db
+!data/lexify.db
 *.db-wal
 *.db-shm
 
