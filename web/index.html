@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lexify · 法律数据洞察平台</title>
-<meta name="description" content="Lexify 是面向律师与律所的法律数据洞察平台：把法院公告、庭审排期与政府采购平台上的公开信息，还原成一张法律服务需求地图——谁在打官司、标的多少、谁在花钱买法律服务。不做案源买卖，只做展业判断的依据。">
+<title>lexify · 法律数据洞察平台</title>
+<meta name="description" content="lexify 是面向律师与律所的法律数据洞察平台：用数据挖掘找到正在需要法律服务的有效客户——谁刚被起诉、谁正在采购、谁的标的卡在执行阶段。广告买曝光、社交攒关系，Lexify 做数据挖掘型触达。">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="ai-chat.css">
 </head>
 <body>
 
@@ -20,7 +21,7 @@
         </svg>
     </span>
     <span class="brand-text">
-      <strong>Lexify</strong>
+      <strong>lexify</strong>
       <em>法律数据洞察平台</em>
     </span>
   </a>
@@ -34,9 +35,8 @@
         <a role="menuitem" href="bounty.html"><b>执行悬赏</b><em>Bounty Notice</em></a>
       </div>
     </div>
-    <a href="#why">为什么</a>
+    <a href="#why">数据挖掘</a>
     <a href="#soon">路线图</a>
-    <a href="#sources">数据源</a>
   </nav>
 
   <div class="topbar-right">
@@ -58,7 +58,7 @@
         <div class="hero-copy">
           <p class="eyebrow">
             <span class="dot"></span>
-            <span data-m="orgs" data-fmt="int">459</span> 家法院与采购平台 · 每日增量采集
+            用<span class="hl">数据挖掘</span>，找到正在需要律师的那批人
           </p>
 
           <h1 class="hero-title">
@@ -67,9 +67,9 @@
           </h1>
 
           <p class="hero-sub">
-            这两件事公告里都写着，只是碎在几百个法院与采购网站里。
-            Lexify 每日把它们拆成字段、去重、算好倒计时与金额，收敛成一张可检索的
-            <strong>法律服务需求地图</strong>——先看清市场在哪，再谈怎么触达。
+            委托往往发生在一个人刚出问题的那一刻——被起诉了、要融资了、正在准备上市。
+            广告是买曝光，社交是攒关系，靠的都是人去找信息。Lexify 换一条路：
+            用大数据找出<strong>已经在法律需求里的企业</strong>，拆成可筛选的字段，交付一条精准的触达路径。
           </p>
 
           <form class="searchbar" id="searchForm" autocomplete="off">
@@ -107,9 +107,10 @@
 
       <dl class="ticker" id="ticker">
         <div><dt data-m="total" data-fmt="int" data-n="3757">3,757</dt><dd>条结构化公告</dd></div>
-        <div><dt data-m="orgs" data-fmt="int" data-n="459">459</dt><dd>家法院与采购机构</dd></div>
         <div><dt data-m="provinces" data-fmt="int" data-n="31">31</dt><dd>个省级行政区</dd></div>
-        <div><dt class="word">每日</dt><dd>增量采集 · 三个看板</dd></div>
+        <div><dt class="word">每日</dt><dd>增量更新 · 三个看板</dd></div>
+        <div><dt class="word">AI</dt><dd>数据找人 · 精准触达</dd></div>
+        <p class="ticker-live" id="dataStamp" hidden></p>
       </dl>
     </div>
   </section>
@@ -119,7 +120,7 @@
     <div class="wrap">
       <header class="sec-head">
         <h2>三块数据，一张需求地图</h2>
-        <p>招标是被明码标价的需求，开庭与悬赏是还没人替它说出口的需求。三块字段是同构的：谁、多少钱、什么时候、在哪。</p>
+        <p>客户可能在法院的开庭排期里、在政府与国企的采购公告里、在卡住的执行案件里。三块字段是同构的：谁、多少钱、什么时候、在哪。</p>
       </header>
 
       <div class="board-grid">
@@ -142,7 +143,7 @@
 
           <ul class="metrics">
             <li><b data-m="boards.tender.total" data-fmt="int">1,071</b><span>条招标公告</span></li>
-            <li><b data-m="boards.tender.sources" data-fmt="int">34</b><span>个采购平台</span></li>
+            <li><b data-m="boards.tender.provinces" data-fmt="int">30</b><span>个地区在采购</span></li>
             <li class="m-warn"><b data-m="boards.tender.dueSoon" data-fmt="int">46</b><span>7 天内截止</span></li>
           </ul>
 
@@ -245,22 +246,22 @@
   <section class="sources" id="why">
     <div class="wrap">
       <header class="sec-head tight">
-        <h2>为什么不是又一个获客工具</h2>
-        <p>广告买曝光，社交攒关系，而委托发生在别人刚出问题的那一刻。</p>
+        <h2>数据挖掘，精准触达有效客户</h2>
+        <p>广告买曝光，社交攒关系，靠的都是人去找信息。Lexify 做第三种：数据挖掘型。</p>
       </header>
 
       <div class="src-grid">
         <div class="src">
-          <span class="src-k">先看市场，再谈触达</span>
-          <p>律师不缺渠道，缺的是「现在谁有需求」。数据不替你发消息，只把名单缩到值得打的那几十个。</p>
+          <span class="src-k">在刚出问题的那一刻找到人</span>
+          <p>委托不发生在平时，发生在对方刚出事的那一刻。Lexify 盯的正是这个时点——谁刚被起诉、哪个采购正在招标、哪些标的卡在执行阶段。</p>
         </div>
         <div class="src">
-          <span class="src-k">不卖案源</span>
-          <p>不做转介、不按案源结果分成，也不提供可外呼的个人名录。交付的是判断依据，不是客户名单。</p>
+          <span class="src-k">数据找人，AI 提效</span>
+          <p>大数据负责找到人，AI 负责学规律、提效率。你看到的不是一本名录，而是一条条「这个客户现在有了法律需求」的判断。</p>
         </div>
         <div class="src">
-          <span class="src-k">口径可核</span>
-          <p>每个数字都能回到公告原文；推算出来的开庭日、赏金单独打标，行业数据连估算方法一起公开。</p>
+          <span class="src-k">不卖曝光，卖精准</span>
+          <p>不做转介、不按案源分成，也不提供可外呼的个人名录。交付的是一份判断依据：谁现在需要律师，凭什么判断。</p>
         </div>
       </div>
     </div>
@@ -271,7 +272,7 @@
     <div class="wrap">
       <header class="sec-head tight">
         <h2>接下来要接进来的</h2>
-        <p>执行与破产接的是需求的下游，行业大盘与供给侧画像接的是判断的上游。同一套管线，多一个数据源适配。</p>
+        <p>承揽端靠数据找人，承做端有通用与垂直 Agent 接手。同一套管线，多一个信号源，就多一类会被提前发现的需求。</p>
       </header>
 
       <div class="soon-grid">
@@ -322,48 +323,6 @@
           </div>
           <span class="pill">规划中</span>
         </article>
-
-        <article class="card soon-card">
-          <div class="card-top">
-            <span class="card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/>
-                <path d="M16 5.5h5M16 9h5M16 12.5h3"/>
-              </svg>
-            </span>
-            <div>
-              <h3>律所与律师画像<span class="en">Supply Side</span></h3>
-              <p class="card-desc">规模、擅长案由、代理记录与中标历史。供给侧补上，需求清单才谈得上竞争情报。</p>
-            </div>
-          </div>
-          <span class="pill">规划中</span>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────────────── 数据源 ───────────────── -->
-  <section class="sources" id="sources">
-    <div class="wrap">
-      <header class="sec-head tight">
-        <h2>数据从哪来</h2>
-        <p>全部是公开信息，三个来源各自一套解析规则。</p>
-      </header>
-
-      <div class="src-grid">
-        <div class="src">
-          <span class="src-k">招标</span>
-          <p>中国政府采购网、各省公共资源交易中心、央企与军队采购平台，共 34 个站点</p>
-        </div>
-        <div class="src">
-          <span class="src-k">开庭</span>
-          <p>人民法院公告网「开庭传票 / 起诉状副本及开庭传票」+ 地方法院官网开庭排期表</p>
-        </div>
-        <div class="src">
-          <span class="src-k">悬赏</span>
-          <p>人民法院公告网执行悬赏公告 + 深圳中院 / 南山 / 福田等法院官网悬赏栏目</p>
-        </div>
       </div>
     </div>
   </section>
@@ -379,12 +338,12 @@
         </svg>
       </span>
       <div>
-        <strong>Lexify</strong>
+        <strong>lexify</strong>
         <p>法律数据洞察平台</p>
       </div>
     </div>
     <div class="foot-legal">
-      <p class="foot-note">© 2026 Lexify. All rights reserved.</p>
+      <p class="foot-note">© 2026 lexify. All rights reserved.</p>
       <a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">粤ICP备2026168850号</a>
     </div>
   </div>
@@ -393,5 +352,6 @@
 <script src="data/overview.js"></script>
 <script src="app.js"></script>
 <script src="field-picker.js"></script>
+<script src="ai-chat.js"></script>
 </body>
 </html>

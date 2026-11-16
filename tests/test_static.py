@@ -182,8 +182,9 @@ def check_shell(html_files):
         # 断言改为「必须显式声明 light，且不能再残留主题读写的痕迹」。
         ok("%s 主题固定为浅色（切换已撤）" % page,
            'data-theme="light"' in s and "lx-theme" not in s and "themeSwitch" not in s)
+        # 品牌名统一小写 lexify（站内 logo 与 <title> 一致），这里按大小写不敏感校验
         ok("%s 有页面标题" % page, re.search(r"<title>[^<]+</title>", s) and
-           "Lexify" in re.search(r"<title>([^<]+)</title>", s).group(1))
+           "lexify" in re.search(r"<title>([^<]+)</title>", s).group(1).lower())
         ok("%s 有 meta description" % page, 'name="description"' in s)
         ok("%s 声明 lang=zh-CN" % page, 'lang="zh-CN"' in s)
 

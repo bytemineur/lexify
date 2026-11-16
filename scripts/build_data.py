@@ -12,6 +12,7 @@ Lexify 只认这一个库。数据从哪来（自己的采集项目、别人给�
 import argparse
 import json
 import os
+import re
 import sqlite3
 import sys
 from datetime import date, datetime
@@ -267,6 +268,18 @@ def write_board(board):
     board.pop("_provs", None)
     os.makedirs(OUT_DIR, exist_ok=True)
     path = os.path.join(OUT_DIR, board["key"] + ".js")
+
+    # 防呆：库里某块是 0 条（采集失败 / 库刚重建 / 只跑了别的板块）时，
+    # 不要用空快照盖掉已有的数据文件。否则一次失败的 crawl 就会让线上
+    # 整块看板变成空白，而真正的原因（采集没跑通）完全看不出来。
+    if board["meta"]["total"] == 0 and os.path.exists(path):
+        old = _read_existing_total(path)
+        if old:
+            print(f"  {board['name']:<6} 库内 0 条，保留已有快照（{old} 条）"
+                  f"，{os.path.basename(path)} 未覆盖")
+            board.setdefault("keptExisting", True)
+            return board
+
     payload = json.dumps(board, ensure_ascii=False, separators=(",", ":"))
     with open(path, "w", encoding="utf-8") as f:
         f.write("window.__BOARD__ = ")
@@ -276,6 +289,35 @@ def write_board(board):
     print(f"  {board['name']:<6} {board['meta']['total']:>5} 条 -> "
           f"{os.path.basename(path)} ({size:.0f} KB)")
     return board
+
+
+def _read_existing_meta(path):
+    """读已有快照里的 meta 字典（overview.js 则返回整个对象）；失败返回 {}。"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            s = f.read()
+        m = re.match(r"\s*window\.__(?:BOARD|OVERVIEW)__\s*=\s*(\{.*\});\s*$", s, re.S)
+        if not m:
+            return {}
+        data = json.loads(m.group(1))
+        if "meta" in data:
+            return data["meta"] or {}
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _read_existing_total(path):
+    """读已有快照的 meta.total；读不出或为 0 时返回 0。"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            s = f.read()
+        m = re.match(r"\s*window\.__BOARD__\s*=\s*(\{.*\});\s*$", s, re.S)
+        if not m:
+            return 0
+        return int((json.loads(m.group(1)).get("meta") or {}).get("total") or 0)
+    except (OSError, ValueError, AttributeError):
+        return 0
 
 
 def pick_sample(hearing, limit=3):
@@ -338,17 +380,26 @@ def main():
 
     # 首页与全局检索用的汇总。首页所有数字都从这里取，
     # 不在 HTML 里写死，避免数据更新后文案对不上。
+    path = os.path.join(OUT_DIR, "overview.js")
+
+    # 若某块因为库内 0 条而保留了旧快照，汇总数字要用旧快照的口径，
+    # 否则首页会显示「0 条公告」，与各看板实际展示的行数对不上。
+    for key, b in boards.items():
+        if b.get("keptExisting"):
+            old_meta = _read_existing_meta(os.path.join(OUT_DIR, key + ".js"))
+            if old_meta:
+                b["meta"] = old_meta
     summary = {
         "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "total": sum(b["meta"]["total"] for b in boards.values()),
-        "orgs": boards["hearing"]["meta"]["courts"] + boards["bounty"]["meta"]["courts"]
-                + boards["tender"]["meta"]["sources"],
-        "provinces": len(all_provs),
+        "orgs": boards["hearing"]["meta"].get("courts", 0)
+                + boards["bounty"]["meta"].get("courts", 0)
+                + boards["tender"]["meta"].get("sources", 0),
+        "provinces": len(all_provs) or _read_existing_meta(path).get("provinces", 0),
         "boards": {k: b["meta"] for k, b in boards.items()},
         # 首屏右侧展示的真实记录（不是占位数据）
         "sample": {"hearing": pick_sample(boards["hearing"])},
     }
-    path = os.path.join(OUT_DIR, "overview.js")
     with open(path, "w", encoding="utf-8") as f:
         f.write("window.__OVERVIEW__ = ")
         f.write(json.dumps(summary, ensure_ascii=False, separators=(",", ":")))

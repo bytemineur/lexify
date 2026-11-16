@@ -5,6 +5,26 @@
 
 ## [Unreleased]
 
+### Added
+
+- **前端改为实时读库（`server/data.py` + `/api/data/*`）**：页面不再依赖 `web/data/*.js` 静态快照，
+  所有数字现查 SQLite。新增 `GET /api/data/health`、`/board/<key>`、`/stats/overview|trend|dist|upcoming`、
+  `/sources`、`/tenders`（服务端筛选 + 分页）。看板页头标注「实时 · 数据库」，
+  接口不可用时退回快照并明确标注「离线快照」，两者措辞不同，不让旧数据冒充现状
+- **吸收 tender-radar 的三个视图**：`dashboard.html`（招标看板：总量/未截止/7天内到期/预算合计 +
+  发布趋势 + 即将截止 + 区域与来源分布）、`radar.html`（快捷检索：服务端筛选 + 分页 + CSV）、
+  `sources.html`（采集来源：每个源的真实入库条数、最近运行结果与失败原因）。
+  原 `tender.html` 保留为「招标列表」，两页分工不同
+- 采集器实跑恢复三块数据：招标 817 条、开庭 1,179 条、悬赏 360 条（此前开庭/悬赏库内为 0，
+  页面显示的是旧快照）
+
+- **AI 咨询入口（右下角「咨询」）**：访客在任意页面点开即可提问，模型扮演客服，答案来自项目本身。
+  `server/ai.py` 扫描项目文件夹（README / docs / 目录树 / 表结构 / 首页汇总数据），拼成系统提示词，
+  通过 DeepSeek Chat Completions 流式作答；前端 `web/ai-chat.js` + `ai-chat.css` 走 SSE，首字即出。
+  Key 从 `LEXIFY_AI_API_KEY` / `DEEPSEEK_API_KEY` 读，或复用 DSH 凭据文件；没配 Key 时入口自动隐藏。
+  约束：同源校验 + 每 IP 每分钟限流（`LEXIFY_AI_RATE`）+ 全局并发上限（`LEXIFY_AI_CONCURRENCY`），
+  Key 不下发浏览器、不进日志；知识库按文件 mtime 缓存 10 分钟。关闭用 `--no-ai` 或 `LEXIFY_AI_DISABLED=1`
+
 ### Changed
 
 - **采集器按「一个看板一个采集器」重排**：原 `collectors/court`（一个目录塞了悬赏 + 开庭两张表 + 深圳/珠三角专项）
@@ -21,6 +41,19 @@
 
 ### Fixed
 
+- **招标采集器根本跑不起来**：`collectors/tender/app/crawler/dedupe.py` 里写的是
+  `from scripts.dedup import ...`，但 `scripts/` 不是包、`crawl.py` 只把 `collectors/tender`
+  加进 `sys.path`，于是每次启动都 `ModuleNotFoundError: scripts.dedup`，
+  招标一块永远采不到数据（页面显示的一直是更早导出过的旧快照）。改成 `from dedup import ...`
+- **`--pages 1` 把每个站点的翻页配置压成 1 页**：`scripts/manage.py` 的 `do_crawl` 固定传
+  `--pages 1`，而 `run_source` 里「显式传参」优先级最高，站点自己配的 1~20 页全部失效，
+  采集量从上千条掉到百来条。现在默认不传（用各站点 `pagination.max_pages`），
+  只有手工指定 `--pages N` 时才覆盖
+- **一次失败采集会把整块看板清空**：`build_data.py` 在没有数据时照样写空的 `*.js`，
+  于是库里某块是 0 条时，线上整块看板变成空白、首页汇总也一起归零。
+  现在库内 0 条且已有快照时保留旧文件，`overview.js` 按保留后的口径重算
+- **详情正文混进站点 CSS**：整页抓详情时 `<style>` 里的 `.pdfcss{...}` 会被当成正文入库
+  （plap 37 条），前端弹窗里显示成一大段样式表。入库前统一过 `html_to_text` 剔除 script/style
 - **开庭采集失败被记成成功**：`court/src/pipeline.py::crawl_hearings` 捕获异常后仍无条件
   `log_crawl(status="ok")`，改为按异常记 `status="error: …"`
 - **详情弹窗三个注入点**：`bounty.html` 两处未转义的 `r.vto`/`r.vfrom`、`board.js` 的 `link.href`

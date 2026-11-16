@@ -27,7 +27,37 @@
 
 > 上表是当前库的规模，**每天采集后会变**。首页的汇总数字同理，以页面实际显示为准。
 
-首页 `index.html` 汇总三者：6,430 条结构化公告、487 家法院与采购机构、31 个省级行政区。**首页所有数字都由 `web/data/overview.js` 驱动**，不在 HTML 里写死，数据更新后文案不会对不上。
+首页 `index.html` 汇总三者：6,430 条结构化公告、31 个省级行政区。**首页所有数字都由 `web/data/overview.js` 驱动**，不在 HTML 里写死，数据更新后文案不会对不上。
+
+> 首页不对外展示采集来源（哪些站点、哪些法院）。来源是平台的核心能力，页面只呈现判断结果。
+
+### 前端读的是实时的库，不是快照
+
+页面上的每个数字都由 `server/data.py` 现查 `data/lexify.db` 得到，接口在 `/api/data/*`：
+
+| 接口 | 用途 |
+|---|---|
+| `GET /api/data/health` | 各表行数、最近一次采集时间（首页数字条用） |
+| `GET /api/data/board/<tender\|hearing\|bounty>` | 整块看板数据，结构与导出的 `*.js` 一致 |
+| `GET /api/data/stats/overview` | 总量 / 未截止 / 7 天内到期 / 预算合计 |
+| `GET /api/data/stats/trend?days=30` | 按日发布趋势 |
+| `GET /api/data/stats/dist?dim=province&limit=10` | 区域 / 行业 / 类型 / 来源分布 |
+| `GET /api/data/stats/upcoming?days=7` | 即将截止 |
+| `GET /api/data/sources` | 采集源状态（真实 `crawl_runs` 记录 + 入库条数） |
+| `GET /api/data/tenders?q=&prov=&min=&max=&page=` | 招标列表，服务端筛选 + 分页 |
+
+**为什么这样改**：`web/data/*.js` 是「库 → 导出 → 页面读」的快照，采集一旦停掉，页面还停在旧快照上，
+看起来有几千条、库里可能一条没有。现在看板页头标「**实时 · 数据库**」；
+只有后端没起或 `file://` 打开时才退回快照，并明确标「**离线快照**」——两种标注措辞不同，不混淆。
+
+**新增的三个页面**（吸收自 tender-radar）：
+
+| 页面 | 定位 |
+|---|---|
+| `dashboard.html` | 招标看板：指标条 + 发布趋势 + 即将截止 + 区域/来源分布 |
+| `radar.html` | 快捷检索：服务端筛选 + 分页 + CSV |
+| `sources.html` | 采集来源：每个源是否启用、最近运行结果、真实入库条数、失败原因 |
+| `tender.html` | 招标列表（原有）：前端筛选全量数据 + 详情弹窗 + 侧栏分布 |
 
 三块看板共用同一套交互：左侧筛选（多选 / 日期预设 / 金额区间）、表头排序、关键词搜索（含公告正文）、分页、右侧分布面板与快捷口径、详情弹窗、CSV 导出。界面固定浅色（早期版本做过深色主题，为了减少视觉负担已移除）。
 
@@ -38,7 +68,7 @@
 ```
 lexify/
 ├─ web/                     # 站点本体，纯静态，零依赖
-│  ├─ index.html            # 首页：hero + 三张看板卡片 + 为什么不是获客工具 + 路线图 + 数据源
+│  ├─ index.html            # 首页：hero + 三张看板卡片 + 数据挖掘定位 + 路线图
 │  ├─ tender.html           # 三个看板页：外壳完全一致，差别只在 LexBoard({...}) 配置
 │  ├─ hearing.html
 │  ├─ bounty.html
@@ -47,6 +77,8 @@ lexify/
 │  ├─ millennium.css        # 唯一的皮肤：电光蓝单色 + 衬线标题 + 方角 + 1px 发丝线
 │  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、首屏真实记录预览、导航高亮
 │  ├─ board.js              # 看板引擎：筛选 / 排序 / 分页 / 渲染 / 导出，配置驱动
+│  ├─ ai-chat.js            # 右下角 AI 咨询入口：SSE 流式对话，读 /api/ai/*
+│  ├─ ai-chat.css           # 咨询面板皮肤（沿用 millennium 的方角 + 发丝线）
 │  ├─ field-curtain.js      # 首屏帘子动效；field.svg 是无 JS 时的静态兜底
 │  ├─ fonts/                # 自托管字体，不引 Google Fonts
 │  ├─ favicon-32/64.png
@@ -65,6 +97,10 @@ lexify/
 │  ├─ test_static.py        # 静态自检 120 项：离线自洽、链接、数据一致性、类名不撞车
 │  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
+├─ server/                  # 站点 + 后台 + AI 的 Python 实现（main.py 只是入口）
+│  ├─ ai.py                 # AI 咨询：扫项目建知识库 + DeepSeek 流式对话
+│  ├─ web.py                # 路由、静态服务、/api/ai/*
+│  ├─ admin.py  auth.py  docs.py  jobs.py  db.py  config.py  cli.py
 ├─ main.py                  # 唯一入口：站点 + 管理后台 + 定时更新
 └─ requirements.txt         # 采集依赖（不跑采集不用装）
 ```
@@ -133,10 +169,19 @@ python main.py
 
 ```bash
 python scripts/manage.py crawl            # 三块一起采 → 去重入库 → 自动重新导出
+python scripts/manage.py crawl --only tender --pages 5   # 只采招标，并覆盖各站点的翻页数
 python scripts/manage.py add 新数据.db    # 外部数据入库（去重）+ 自动重新导出
 python scripts/manage.py stats            # 看库里有什么
 python scripts/manage.py failures         # 看采集/导入失败记录
 ```
+
+> **翻页默认按各站点自己的 `pagination.max_pages` 走**（1~20 页不等，见
+> `collectors/tender/configs/sites/*.yaml`）。`--pages N` 是**覆盖**而不是下限——早期版本
+> 这里写死 `--pages 1`，把每个站点的配置都压成一页，采集量从上千条掉到百来条。
+> 想采得更全就删掉这个参数，别随手传 1。
+>
+> 库里某一块是 0 条时（采集失败、刚重建库）**不会**用空数据覆盖 `web/data/*.js`，
+> 线上保留上一次的快照，避免整块看板突然变空白。
 
 命令在 Windows / macOS / Linux 上都一样：把 `python` 换成 `python3`（Linux/macOS 未激活 conda 时）即可，
 脚本内部用 `sys.executable` 调子进程，不依赖 cmd 批处理或 shell 管道。
@@ -181,6 +226,71 @@ manage.py crawl
 2. **省份归一**：招标记「吉林」、法院记「吉林省」，不归一化会把同一个省算成两个（曾经算出 61 个省）。`norm_prov()` 统一剥掉 省 / 市 / 自治区 后缀。
 3. **正文快照**：`content` 全文最多保留 8,000 字，随数据一起下发。这样点开详情看的是本地快照，不依赖源站能不能打开。
 4. **天数重算**：`days` 不落库，页面加载时用 `daysFrom()` 现算，避免数据放几天后「还剩 3 天」变成错的。
+
+---
+
+---
+
+## AI 咨询入口
+
+每个页面右下角有一个「咨询」按钮，点开是对话面板。模型扮演客服，**答案来自这个项目本身**：
+提问时 `server/ai.py` 会扫一遍项目文件夹（README、docs、目录树、库里的表规模、首页汇总数字），
+整理成知识库塞进系统提示词，所以它能准确说出三个看板各有多少条、字段是什么、怎么部署，
+也不会替访客编造价格或功能。
+
+### 开启
+
+只要服务端能拿到 DeepSeek 的 Key，入口就自动出现；拿不到就自动隐藏（不会留一个点不通的按钮）。
+
+| 优先级 | 来源 |
+|---|---|
+| 1 | 环境变量 `LEXIFY_AI_API_KEY` |
+| 2 | 环境变量 `DEEPSEEK_API_KEY` |
+| 3 | DSH 凭据文件 `~/.dsh/.credentials.yaml` 里的 `DEEPSEEK_API_KEY`（装了 DeepSeek Harness 时自动复用） |
+
+```bash
+# Windows PowerShell
+$env:DEEPSEEK_API_KEY = "sk-..."
+python main.py
+
+# macOS / Linux
+export DEEPSEEK_API_KEY=sk-...
+python3 main.py
+```
+
+启动日志里会有一行 `AI 咨询：已启用 · 模型 deepseek-flash · Key 来源：…`，对得上就说明接通了。
+
+> Key 只在服务端使用：不下发到浏览器、不进日志、不在前端代码里出现。
+
+### 可调参数
+
+| 环境变量 | 默认 | 作用 |
+|---|---|---|
+| `LEXIFY_AI_MODEL` | `deepseek-flash` | 模型 id（也可用 `deepseek-v4-pro`） |
+| `LEXIFY_AI_BASE_URL` | `https://api.deepseek.com` | 兼容 OpenAI 协议的网关地址 |
+| `LEXIFY_AI_THINKING` | `off` | 客服场景默认关掉思考模式，先出字 |
+| `LEXIFY_AI_TIMEOUT` | `90` | 单次上游请求超时（秒） |
+| `LEXIFY_AI_RATE` | `20` | 每个 IP 每分钟最多问几次 |
+| `LEXIFY_AI_CONCURRENCY` | `4` | 同时进行的对话上限（防止一把 Key 被刷爆） |
+| `LEXIFY_AI_DISABLED` | — | 设成 `1` 彻底关闭入口 |
+
+命令行不用记这些：`python main.py --no-ai` 就能关掉 AI 入口。
+
+### 实现要点
+
+- **接口**：`POST /api/ai/chat`，`{"message": "...", "history": [...], "stream": true}`，
+  流式返回 SSE（`event: delta` 逐字 / `done` / `error`）；不带 `stream` 就返回整段 JSON。
+  `GET /api/ai/status` 只回「开没开、用的哪个模型、知识库有多少文件」，供前端决定显不显示入口。
+- **安全**：这个 POST 不走后台口令（访客都要能用），改为**同源校验**（挡第三方站点盗刷）+
+  **每 IP 限流** + **全局并发上限** + 请求体 64 KB 上限。它不碰数据库、不写盘。
+- **知识库**：只读白名单扩展名，跳过 `.git` / `data` / 字体 / 图片；单文件 400 KB、
+  单篇摘要 2,600 字、总预算 26,000 字封顶，避免把整份 README 和所有源码倒进 context。
+  结果按文件 mtime 缓存 10 分钟——**改了文档想立刻生效，重启一下进程**即可。
+- **不越界**：提示词里固定住了三条硬边界——不给法律意见、不做案源买卖、数据只报知识库里的数。
+  问到价格/商务，它会请对方留联系方式并转交，不自己报价。
+
+只想浏览页面、不需要 AI 时，什么都不配就行：`web/` 仍然零依赖，`file://` 打开也照常工作
+（`ai-chat.js` 检测到 `file:` 协议会直接跳过，不去请求接口）。
 
 ---
 
@@ -238,7 +348,7 @@ manage.py crawl
 | `presets` | 右侧「快捷口径」：`{ label, test(row), apply(state) }` |
 | `dist` | 右侧分布面板：`{ label, field, top, emptyLabel, labelOf }` |
 | `detail` | 详情弹窗内容：返回 `{ title, sub, kv: [[键, 值], ...] }` |
-| `metaExtra` | 页头「更新于 …」后面追加的 HTML（比如标注数据源） |
+| `metaExtra` | 页头「更新于 …」后面追加的 HTML（可选，当前三块看板都没用） |
 | `asideNote` | 右侧底部说明文字 |
 
 **四种筛选器**

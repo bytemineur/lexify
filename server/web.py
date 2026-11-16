@@ -8,6 +8,9 @@
   1. 静态文件：commonpath + realpath 双重校验，符号链接也逃不出 web/。
   2. 上传：限制体积、先校验扩展名再落盘、用 os.replace 避免并发写坏。
   3. 日志：绝不记录 ?token= 明文。
+
+AI 咨询（/api/ai/*）是唯一对外放开的 POST：它不碰库、不写盘，只把问题发给模型，
+所以不走后台口令，改为同源校验 + 体积上限 + 每 IP 限流。
 """
 import email.parser
 import email.policy
@@ -17,13 +20,17 @@ import json
 import os
 import re
 import sys
+import threading
+import time
 import traceback
 import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from . import ai as aimod
 from . import auth as authmod
 from . import admin as adminmod
+from . import data as datamod
 from . import docs as docsmod
 from . import jobs as jobsmod
 from .config import ADMIN_COOKIE, CLIENT_GONE, COMPRESSIBLE, MIME, UPLOAD_DIR, WEB, DB
@@ -31,8 +38,33 @@ from .config import ADMIN_COOKIE, CLIENT_GONE, COMPRESSIBLE, MIME, UPLOAD_DIR, W
 # 上传体上限（默认 32 MB）：没上限会让恶意请求灌满磁盘/内存。
 MAX_UPLOAD_BYTES = int(os.environ.get("LEXIFY_MAX_UPLOAD", str(32 * 1024 * 1024)))
 
+# AI 对话：单次请求体上限、每 IP 每分钟次数、全局并发上限（防止一把 Key 被刷爆）。
+AI_MAX_BODY = 64 * 1024
+AI_RATE_PER_MIN = int(os.environ.get("LEXIFY_AI_RATE", "20"))
+AI_MAX_CONCURRENT = int(os.environ.get("LEXIFY_AI_CONCURRENCY", "4"))
+_sem_ai = threading.BoundedSemaphore(max(1, AI_MAX_CONCURRENT))
+_ai_hits = {}
+_hits_lock = threading.Lock()
+
 # gzip 结果按 (路径, mtime, size) 缓存，超出 40 项就整体清空。
 _gz_cache = {}
+
+
+def ai_allow(ip):
+    """每 IP 每分钟固定窗口限流。返回 (是否放行, 需等待秒数)。"""
+    now = time.time()
+    with _hits_lock:
+        bucket = [t for t in _ai_hits.get(ip, []) if now - t < 60]
+        if len(bucket) >= AI_RATE_PER_MIN:
+            _ai_hits[ip] = bucket
+            return False, int(60 - (now - bucket[0])) + 1
+        bucket.append(now)
+        _ai_hits[ip] = bucket
+        if len(_ai_hits) > 2000:      # 控制内存，清掉过期 IP
+            for k in [k for k, v in _ai_hits.items() if not v or now - v[-1] > 300]:
+                _ai_hits.pop(k, None)
+    return True, 0
+
 
 
 def parse_fields(ctype, body):
@@ -123,6 +155,13 @@ class Handler(BaseHTTPRequestHandler):
     def _do_GET(self):
         path = urllib.parse.urlparse(self.path).path
 
+        if path == "/api/ai/status":
+            return self._ai_status()
+
+        # 实时数据接口：页面直接读库，不经过静态快照
+        if path.startswith("/api/data/"):
+            return self._data_api(path, urllib.parse.urlparse(self.path).query)
+
         if path in ("/docs", "/docs/"):
             return self._send(200, docsmod.render_doc("architecture"))
         if path == "/docs/schema":
@@ -206,6 +245,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _do_POST(self):
         path = urllib.parse.urlparse(self.path).path
+        if path.startswith("/api/ai/"):
+            return self._ai_post(path)
         if not (path.startswith("/admin/")):
             return self._send(404, "not found")
         if not authmod.admin_ok(self.client_address[0], self.headers, self.path):
@@ -270,6 +311,150 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, adminmod.render(("✓ " if ok else "✗ ") + safe + "\n\n" + out))
 
         self._send(404, "not found")
+
+
+    # ---------- AI 咨询 ----------
+    def _json(self, code, obj):
+        return self._send(code, json.dumps(obj, ensure_ascii=False),
+                          "application/json; charset=utf-8",
+                          {"Cache-Control": "no-store"})
+
+    # ---------- 实时数据 ----------
+    def _data_api(self, path, query):
+        """页面实时查询的入口。全部现查 SQLite，返回 JSON。
+
+        这些接口是公开的（站点本身就对所有人开放），只读、不写盘。
+        """
+        q = urllib.parse.parse_qs(query or "")
+        try:
+            if path == "/api/data/health":
+                return self._json(200, datamod.health())
+            if path.startswith("/api/data/board/"):
+                key = path[len("/api/data/board/"):].strip("/")
+                return self._json(200, datamod.board(key))
+            if path == "/api/data/stats/overview":
+                return self._json(200, datamod.stats_overview())
+            if path == "/api/data/stats/trend":
+                days = (q.get("days") or ["30"])[0]
+                return self._json(200, datamod.stats_trend(int(days) if days.isdigit() else 30))
+            if path == "/api/data/stats/dist":
+                dim = (q.get("dim") or ["province"])[0]
+                limit = (q.get("limit") or ["10"])[0]
+                return self._json(200, datamod.stats_dist(dim, int(limit) if limit.isdigit() else 10))
+            if path == "/api/data/stats/upcoming":
+                days = (q.get("days") or ["7"])[0]
+                return self._json(200, datamod.stats_upcoming(int(days) if days.isdigit() else 7))
+            if path == "/api/data/sources":
+                return self._json(200, datamod.sources())
+            if path == "/api/data/tenders":
+                return self._json(200, datamod.tenders(q))
+            return self._json(404, {"error": "not found"})
+        except KeyError as e:
+            return self._json(400, {"error": str(e)})
+        except FileNotFoundError as e:
+            return self._json(503, {"error": str(e), "hint": "先跑一次采集或建库"})
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            return self._json(500, {"error": "%s: %s" % (type(e).__name__, e)})
+
+    def _ai_status(self):
+        """前端据此决定显示入口还是「未配置」提示。不返回 Key。"""
+        try:
+            st = aimod.warm_static_file()
+        except Exception:
+            st = {"enabled": False, "model": ""}
+        text, meta = "", {}
+        try:
+            _, meta = aimod.build_knowledge()
+        except Exception:
+            pass
+        return self._json(200, {
+            "enabled": st["enabled"],
+            "model": st["model"],
+            "knowledge": {"files": meta.get("files", 0), "docs": meta.get("docs", 0),
+                          "chars": meta.get("chars", 0), "builtAt": meta.get("builtAt", "")},
+        })
+
+    def _ai_post(self, path):
+        if path != "/api/ai/chat":
+            return self._json(404, {"error": "not found"})
+        # 同源校验：只允许本站页面调用，挡住第三方站点盗刷。
+        if not self._same_origin():
+            return self._json(403, {"error": "跨站请求被拒绝"})
+
+        ok, wait = ai_allow(self.client_address[0])
+        if not ok:
+            return self._json(429, {"error": "问得有点快，%d 秒后再试。" % wait})
+
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0 or length > AI_MAX_BODY:
+            return self._json(413, {"error": "请求体过大或为空"})
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8", "replace") or "{}")
+        except ValueError:
+            return self._json(400, {"error": "不是合法的 JSON"})
+        if not isinstance(data, dict):
+            return self._json(400, {"error": "参数格式不对"})
+
+        question = str(data.get("message") or "").strip()
+        if not question:
+            return self._json(400, {"error": "问题不能为空"})
+        if len(question) > 2000:
+            return self._json(400, {"error": "问题太长了，请控制在 2000 字以内"})
+        history = data.get("history") if isinstance(data.get("history"), list) else []
+
+        cfg = aimod.settings()
+        if not cfg["enabled"]:
+            return self._json(503, {"error": "服务端还没配置 API Key（LEXIFY_AI_API_KEY 或 "
+                                             "DEEPSEEK_API_KEY），AI 咨询暂时不可用。",
+                                     "hint": "配好后重启即可，页面会自动出现入口。"})
+        key, _ = aimod.api_key()
+        cfg["key"] = key
+
+        if not _sem_ai.acquire(blocking=False):
+            return self._json(503, {"error": "当前咨询的人有点多，稍等几秒再发一次。"})
+        try:
+            knowledge, _ = aimod.build_knowledge()
+            system = {"role": "system",
+                      "content": aimod.SYSTEM_PROMPT.replace("{knowledge}", knowledge.strip())}
+            msgs = [system] + aimod.build_messages(history, question)
+            client = aimod.ChatClient(cfg)
+
+            if not data.get("stream"):
+                return self._json(200, {"reply": client.complete(msgs)})
+
+            # ---- 流式：先发头，再逐字推。已开始响应后不能再改状态码，
+            #      出错就发一条 error 事件让前端展示。
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Connection", "close")
+                self.send_header("X-Accel-Buffering", "no")
+                self.end_headers()
+            except CLIENT_GONE:
+                self.close_connection = True
+                return
+            self.close_connection = True
+
+            def emit(event, payload):
+                chunk = ("event: %s\ndata: %s\n\n" % (event, json.dumps(payload, ensure_ascii=False)))
+                self.wfile.write(chunk.encode("utf-8"))
+                self.wfile.flush()
+
+            try:
+                for piece in client.stream(msgs):
+                    emit("delta", {"t": piece})
+                emit("done", {"ok": True})
+            except CLIENT_GONE:
+                return
+            except aimod.AiError as e:
+                emit("error", {"error": str(e)})
+            except Exception as e:            # 兜底，别让前端一直转圈
+                emit("error", {"error": "服务端异常：%s" % type(e).__name__})
+            return
+        finally:
+            _sem_ai.release()
 
 
 class QuietHTTPServer(ThreadingHTTPServer):

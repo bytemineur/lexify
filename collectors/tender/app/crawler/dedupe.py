@@ -25,7 +25,11 @@ _SCRIPTS = os.path.normpath(_SCRIPTS)
 if _SCRIPTS not in sys.path:
     sys.path.insert(0, _SCRIPTS)
 
-from scripts.dedup import make_hash_key, normalize_title  # noqa: E402
+# scripts/ 不是包（没有 __init__.py），所以这里必须 `from dedup import ...`。
+# 写成 `from scripts.dedup import` 需要仓库根在 sys.path 上，而 crawl.py 只加了
+# collectors/tender —— 结果采集器一启动就 ModuleNotFoundError: scripts.dedup，
+# 招标一块永远采不到数据（页面显示的是上一次成功导出的旧快照）。
+from dedup import make_hash_key, normalize_title  # noqa: E402
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session

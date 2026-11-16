@@ -180,6 +180,11 @@ def _ingest_row(
     # 正文来源优先级：详情页正文 > 列表摘要 > JSON 里的 content 字段。
     # 列表摘要里偶尔就写着「预算金额 xx 万元」，白拿的信息不该浪费。
     content = row.get("_text", "") or row.get("content", "") or row.get("summary", "")
+    # 详情页整页取下来时，正文容器里会混进站点自己的 <style>（plap 就是
+    # 一大段 .pdfcss{...}），不洗就直接入库，前端详情弹窗里会显示成 CSS。
+    # html_to_text 会把 script/style 整段剔掉，这里统一过一遍再抽取。
+    if "<" in content:
+        content = html_to_text(content)
     data = extract_tender(title, content, row=row)
 
     t = Tender(

@@ -28,10 +28,42 @@
   }
 
   /* ---------------- 数据填充 ----------------
-     首页所有数字都来自 data/overview.js，HTML 里的只是无数据时的兜底，
-     这样重新采集后不用回来改文案。 */
+     首页数字优先取实时接口 /api/data/health（现查数据库），
+     只有接口不可用（file:// 打开或后端没起）才退回 overview.js 快照。
+     HTML 里的数字只是兜底文案，任何一个数字都不会被写死在页面里。 */
   function initData() {
-    var ov = window.__OVERVIEW__;
+    renderData(window.__OVERVIEW__);
+
+    if (location.protocol === "file:" || !window.fetch) return;
+    fetch("api/data/health", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (h) {
+        if (!h || !h.ok || !h.boards) return;      // 拿不到就保留快照口径
+        var b = h.boards;
+        renderData({
+          total: h.total,
+          orgs: h.sources,
+          provinces: (window.__OVERVIEW__ && window.__OVERVIEW__.provinces) || 0,
+          boards: {
+            tender: { total: b.tender || 0 },
+            hearing: { total: b.hearing || 0 },
+            bounty: { total: b.bounty || 0 }
+          }
+        });
+        markLive(h);
+      })
+      .catch(function () { /* 静默：快照数字仍在 */ });
+  }
+
+  /* 首屏标注数据是实时还是快照，不让旧数字冒充现状。 */
+  function markLive(h) {
+    var el = document.getElementById("dataStamp");
+    if (!el) return;
+    el.textContent = "实时 · " + (h.lastRun ? "最近采集 " + String(h.lastRun).slice(0, 16) : "数据库");
+    el.hidden = false;
+  }
+
+  function renderData(ov) {
     if (!ov) return;
     var els = document.querySelectorAll("[data-m]");
     for (var i = 0; i < els.length; i++) {

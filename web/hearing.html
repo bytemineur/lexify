@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>开庭公告 · Lexify</title>
+<title>开庭公告 · lexify</title>
 <meta name="description" content="全国法院开庭传票与排期表，按被告类型、案由、开庭时间筛选，识别刚收到传票还没委托律师的商事被告。">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="ai-chat.css">
 </head>
 <body class="board-hearing">
 
@@ -20,14 +21,14 @@
           <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
         </svg>
     </span>
-    <span class="brand-text"><strong>Lexify</strong><em>法律数据洞察平台</em></span>
+    <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
   </a>
 
   <nav class="btabs" aria-label="看板切换">
-    <a href="tender.html" data-b="tender"><i class="bdot"></i>招标雷达</a>
-    <a href="hearing.html" data-b="hearing" class="on"><i class="bdot"></i>开庭公告</a>
-    <a href="bounty.html" data-b="bounty"><i class="bdot"></i>执行悬赏</a>
-  </nav>
+      <a href="tender.html" data-b="tender"><i class="bdot"></i>招标雷达</a>
+      <a href="hearing.html" data-b="hearing" class="on"><i class="bdot"></i>开庭公告</a>
+      <a href="bounty.html" data-b="bounty"><i class="bdot"></i>执行悬赏</a>
+    </nav>
 
   <div class="topbar-right">
       </div>
@@ -148,16 +149,13 @@
   }
 
   LexBoard({
+    key: "hearing",
     title: "开庭公告",
     en: "Hearing Docket",
     tagline: "法院开庭传票与排期表。重点不是「有哪些案子」，而是「哪个企业被告刚收到传票、还没找律师」。",
     dateField: "heaDate",
     amountField: "amount",
     search: ["court", "cause", "plaintiff", "defendant", "caseNo", "room", "body"],
-
-    metaExtra: function () {
-      return " · 数据源 <b>法院公告网（深圳 / 广州 / 东莞 / 惠州）+ 深圳各区法院官网排期表</b>";
-    },
 
     kpis: [
       { label: "开庭公告", value: function (r, m) { return m.total; } },
@@ -196,17 +194,6 @@
           { label: "500 万以上", min: 5000000, max: null },
           { label: "1000 万以上", min: 10000000, max: null }
         ]
-      },
-      {
-        key: "src", label: "数据源", type: "multi", field: "src",
-        labelOf: function (k) {
-          var m = {
-            rmfygg_kt: "公告网·开庭传票",
-            court_schedule: "法院排期表",
-            court_kt: "法院官网·开庭公告"
-          };
-          return m[k] || k;
-        }
       }
     ],
 
@@ -375,11 +362,13 @@
           ["涉案金额", amt],
           ["公告类型", r.ntype || "—"],
           ["发布日期", r.pub || "—"],
-          ["数据源", srcLabel]
+          ["公告原文", "随详情附正文快照"]
         ]
       };
     }
   });})();
 </script>
+<script src="ai-chat.js"></script>
+<script src="nav-dropdown.js"></script>
 </body>
 </html>

@@ -141,7 +141,7 @@ def docs_page(active="architecture", content=""):
     nav += '<a class="item" href="/">← 回到站点</a>'
     return ('<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            '<title>Lexify 文档</title><style>' + DOC_CSS + '</style></head><body>'
+            '<title>lexify 文档</title><style>' + DOC_CSS + '</style></head><body>'
             '<div class="wrap"><nav><a class="brand" href="/docs">lexify<small>docs</small></a>'
             + nav + '</nav><main>' + content + '</main></div></body></html>')
 

@@ -137,7 +137,7 @@ html[data-mlp] .topbar {
 html[data-mlp] .brand { gap: 0; }
 html[data-mlp] .logo { display: none; }
 html[data-mlp] .brand-text strong {
-  font-size: 25px; font-weight: 600; letter-spacing: -0.01em; text-transform: lowercase;
+  font-size: 25px; font-weight: 600; letter-spacing: -0.01em; text-transform: none;
   color: var(--blue); font-family: var(--font-sans);
 }
 html[data-mlp] .brand-text em { display: none; }
@@ -195,17 +195,26 @@ html[data-mlp] .seg button { width: 26px; height: 24px; border-radius: 0; color:
 html[data-mlp] .seg button.on { background: var(--blue); color: #fff; }
 
 /* 看板页签：同样斜杠分隔 */
-html[data-mlp] .btabs { gap: 0; background: none; border: 0; padding: 0; box-shadow: none; }
+html[data-mlp] .btabs { gap: 2px; background: none; border: 0; padding: 0; box-shadow: none; margin-left: 20px; }
+/* 一级页签（开庭公告 / 执行悬赏）与「招标雷达」下拉触发器必须是同一档尺寸：
+   12.5px / 7px 12px 内边距。早先这里按首页顶栏的 16px、72px 高来写，
+   结果胶囊里另外两项比分组项大一圈，看起来像两套控件。 */
+/* 一级页签与首页顶栏导航保持同一档：16px / 行高 25.6px，
+   高度撑满 72px 的顶栏、垂直居中，视觉上和首页是同一套导航。
+   容器（.btabs）本身做成胶囊底，页签之间用胶囊内缝隙分隔，
+   不再挂「/」分隔符——首页也没有。 */
 html[data-mlp] .btabs a {
-  position: relative; height: 72px; padding: 0 18px 0 0; margin-right: 18px;
-  font-size: 16px; color: var(--blue-56); background: none; box-shadow: none;
-  display: inline-flex; align-items: center;
+  position: relative; height: 72px; padding: 0 18px; margin-right: 0;
+  font-size: 16px; line-height: 1.6; border-radius: 6px;
+  color: var(--text-2); background: none; box-shadow: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  text-decoration: none;
 }
-html[data-mlp] .btabs a::after {
-  content: "/"; position: absolute; right: 0; color: var(--blue-18);
+html[data-mlp] .btabs a::after { content: none; }
+html[data-mlp] .btabs a:hover {
+  color: var(--text); background: var(--surface-2); text-decoration: none;
 }
-html[data-mlp] .btabs a:hover { color: var(--blue); text-decoration: underline; text-underline-offset: 5px; }
-html[data-mlp] .btabs a.on { color: var(--blue); background: none; }
+html[data-mlp] .btabs a.on { color: var(--text); background: var(--surface); box-shadow: var(--raised); }
 html[data-mlp] .bdot { display: none; }
 
 /* ── 4. 首屏：大字 + 划线场 ─────────────────────── */
@@ -445,10 +454,10 @@ html[data-mlp] .src-k {
   text-transform: uppercase; color: var(--blue-56);
 }
 html[data-mlp] .src p { font-size: 16px; line-height: 1.6; color: var(--text-2); max-width: 32ch; }
-html[data-mlp] .soon-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 0; }
+html[data-mlp] .soon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 0; }
 html[data-mlp] .soon-grid .card { border-left: 0; padding: 20px 20px 22px; }
 html[data-mlp] .soon-grid .card:first-child { border-left: 1px solid var(--blue-18); }
-/* 四栏很窄：副标换到标题下面，标题才不会被挤断 */
+/* 三栏偏窄：副标换到标题下面，标题才不会被挤断 */
 html[data-mlp] .soon-grid .card h3 { display: block; }
 html[data-mlp] .soon-grid .card h3 .en {
   display: block; margin-top: 4px; font-size: 10px; letter-spacing: 0.12em;
@@ -465,7 +474,7 @@ html[data-mlp] .foot {
 }
 html[data-mlp] .foot-in { display: flex; align-items: center; justify-content: space-between; }
 html[data-mlp] .foot-brand strong {
-  font-size: 18px; font-weight: 600; text-transform: lowercase; color: var(--blue);
+  font-size: 18px; font-weight: 600; text-transform: none; color: var(--blue);
 }
 html[data-mlp] .foot-brand p,
 html[data-mlp] .foot-note { font-size: 13px; color: var(--blue-56); }
@@ -712,7 +721,8 @@ html[data-mlp] .empty { padding: 44px 12px; font-size: 14px; color: var(--blue-5
   html[data-mlp] .topbar { height: 60px; padding: 0 16px; gap: 12px; }
   html[data-mlp] .brand-text strong { font-size: 21px; }
   html[data-mlp] .nav { display: none; }
-  html[data-mlp] .btabs a { height: 60px; padding: 0 14px 0 0; margin-right: 14px; font-size: 14px; }
+  /* 小屏只收紧内边距，字号仍与下拉保持一致（不要再单独放大到 14px） */
+  html[data-mlp] .btabs a { padding: 6px 10px; margin-right: 0; font-size: 12px; }
   html[data-mlp] .hero { background-size: 900px auto; background-position: right -300px top -40px; }
   html[data-mlp] .hero-title { font-size: 34px; }
   html[data-mlp] .hero-sub { font-size: 17px; }
@@ -739,4 +749,16 @@ html[data-mlp] .empty { padding: 44px 12px; font-size: 14px; color: var(--blue-5
 /* ── 14. 减少动态效果 ───────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   html[data-mlp] * { transition: none !important; animation: none !important; }
+}
+
+
+/* 页签与首页顶栏同档后的收尾：
+   高度撑满 topbar，激活项用淡底 + 加粗标识，不再用描边盒子，
+   避免 72px 高的胶囊看起来像两个大按钮。 */
+html[data-mlp] .btabs a:hover { background: var(--blue-05); }
+html[data-mlp] .btabs a.on {
+  color: var(--blue);
+  background: none;
+  box-shadow: none;
+  font-weight: 600;
 }

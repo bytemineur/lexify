@@ -692,3 +692,22 @@ table.list td.wrap { white-space: normal; }
 }
 
 table.list tbody tr { cursor: pointer; }
+
+/* ── 数据来源标注（实时 / 离线快照）───────────────────────
+   数字来自哪必须一眼看得出：实时的用主色，离线快照用中性灰，
+   两者措辞不同，不让人把旧快照当成库里的现状。 */
+.src-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 11px;
+  line-height: 1.7;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.src-badge--live { color: var(--blue); border-color: var(--blue); }
+.src-badge--snap { color: var(--text-3); border-style: dashed; }
+td.empty { padding: 40px 16px; text-align: center; color: var(--text-3); }
+/* 「开庭公告」「执行悬赏」后面不带斜杠（斜杠是首页顶栏的分隔符） */
+html[data-mlp] .btabs > a::after { content: none; }

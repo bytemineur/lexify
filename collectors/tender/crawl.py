@@ -53,7 +53,9 @@ def run_one(sess, sid, pages, timeout):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sites", default="", help="逗号分隔的来源 id")
-    ap.add_argument("--pages", type=int, default=1)
+    ap.add_argument("--pages", type=int, default=0,
+                    help="每站翻几页；默认 0 = 用各站点 pagination.max_pages（推荐）。"
+                         "传具体数字会**覆盖**站点自己的页数配置")
     ap.add_argument("--limit", type=int, default=0, help="最多跑几个来源，0 = 不限")
     ap.add_argument("--all", action="store_true", help="包含需要浏览器的站点")
     ap.add_argument("--timeout", type=int, default=120, help="单个来源最多等多少秒")
@@ -74,7 +76,9 @@ def main():
     if args.limit:
         ids = ids[: args.limit]
 
-    print("[招标] 待采 %d 个来源，每个 %d 页" % (len(ids), args.pages), flush=True)
+    print("[招标] 待采 %d 个来源，页数：%s"
+          % (len(ids), ("每站 %d 页（命令行指定）" % args.pages) if args.pages
+             else "按各站点配置（pagination.max_pages）"), flush=True)
     ok = failed = new_total = 0
     for i, sid in enumerate(ids, 1):
         t0 = time.time()

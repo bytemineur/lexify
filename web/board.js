@@ -62,9 +62,54 @@
   window.LexUtil = { esc: esc, num: num, money: money, daysFrom: daysFrom, raw: raw };
 
   /* ============================================================ */
+  /* 数据来源：优先实时接口，快照只做离线兜底。
+     ------------------------------------------------------------
+     以前这里只读 window.__BOARD__（build_data.py 导出的静态快照），
+     采集一旦停掉，页面还停在旧快照上——看起来有几千条，库里可能一条没有。
+     现在先从 /api/data/board/<key> 现查数据库：
+       · 拿到就用它，页头标注数据实时取自数据库
+       · 拿不到（file:// 打开 / 后端没起）才退回快照，并在页头明确写「离线快照」
+     两种情况的标注都写出来，不让人误以为看到的是实时数据。 */
+  function loadBoardData(key) {
+    return new Promise(function (resolve) {
+      if (location.protocol === "file:" || !window.fetch) {
+        resolve({ data: window.__BOARD__, live: false, reason: "file:// 离线打开" });
+        return;
+      }
+      var url = "api/data/board/" + encodeURIComponent(key) + "?t=" + Date.now();
+      var ctl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 20000);
+      fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          clearTimeout(timer);
+          if (j && j.rows) resolve({ data: j, live: true });
+          else resolve({ data: window.__BOARD__, live: false, reason: "接口无数据" });
+        })
+        .catch(function () {
+          clearTimeout(timer);
+          resolve({ data: window.__BOARD__, live: false, reason: "接口不可用" });
+        });
+    });
+  }
+
   window.LexBoard = function (CFG) {
-    var DATA = window.__BOARD__;
-    if (!DATA) return;
+    var KEY = CFG.key || (window.__BOARD__ && window.__BOARD__.key) || "";
+    loadBoardData(KEY).then(function (got) {
+      mount(CFG, got.data, got.live, got.reason);
+    });
+  };
+
+  function mount(CFG, DATA, LIVE, REASON) {
+    if (!DATA) {
+      var host = document.getElementById("tbody");
+      if (host) {
+        host.innerHTML = '<tr><td colspan="9" class="empty">' +
+          "没有可显示的数据。确认后端已启动（python main.py）且库里已有采集结果。" +
+          "</td></tr>";
+      }
+      return;
+    }
 
     var ALL = DATA.rows || [];
     var META = DATA.meta || {};
@@ -91,8 +136,15 @@
     function renderHead() {
       $("bTitle").innerHTML = esc(CFG.title) + '<span class="en">' + esc(CFG.en) + "</span>";
       $("bSub").textContent = CFG.tagline;
-      $("bMeta").innerHTML =
-        "更新于 <b>" + esc(META.generatedAt || "—") + "</b>" +
+      // 数据源标注：实时就是实时，离线快照就是离线快照，不混为一谈。
+      var badge = LIVE
+        ? '<span class="src-badge src-badge--live" title="数字现查数据库">实时 · 数据库</span>'
+        : '<span class="src-badge src-badge--snap" title="' + esc(REASON || "") +
+          '">离线快照</span>';
+      var when = LIVE
+        ? "查询于 <b>" + esc(META.generatedAt || "—") + "</b>"
+        : "快照生成于 <b>" + esc(META.generatedAt || "—") + "</b>";
+      $("bMeta").innerHTML = when + " " + badge +
         (CFG.metaExtra ? CFG.metaExtra(META) : "");
     }
 

@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>招标雷达 · Lexify</title>
+<title>招标雷达 · lexify</title>
 <meta name="description" content="全国政府采购与公共资源交易平台的公开招标，抽取预算金额与投标截止时间，按截止日排序。">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="ai-chat.css">
 </head>
 <body class="board-tender">
 
@@ -20,14 +21,14 @@
           <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
         </svg>
     </span>
-    <span class="brand-text"><strong>Lexify</strong><em>法律数据洞察平台</em></span>
+    <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
   </a>
 
   <nav class="btabs" aria-label="看板切换">
-    <a href="tender.html" data-b="tender" class="on"><i class="bdot"></i>招标雷达</a>
-    <a href="hearing.html" data-b="hearing"><i class="bdot"></i>开庭公告</a>
-    <a href="bounty.html" data-b="bounty"><i class="bdot"></i>执行悬赏</a>
-  </nav>
+      <a href="tender.html" data-b="tender" class="on"><i class="bdot"></i>招标雷达</a>
+      <a href="hearing.html" data-b="hearing"><i class="bdot"></i>开庭公告</a>
+      <a href="bounty.html" data-b="bounty"><i class="bdot"></i>执行悬赏</a>
+    </nav>
 
   <div class="topbar-right">
       </div>
@@ -165,6 +166,7 @@
   }
 
   LexBoard({
+    key: "tender",
     title: "招标雷达",
     en: "Tender Radar",
     tagline: "全国政府采购与公共资源交易平台的公开招标。按投标截止日排序，先看还来得及投的。",
@@ -172,13 +174,9 @@
     amountField: "amount",
     search: ["title", "org", "agency", "cat", "prov", "city", "body"],
 
-    metaExtra: function () {
-      return " · 数据源 <b>政府采购网 / 公共资源交易中心 / 央企与军队采购</b>";
-    },
-
     kpis: [
       { label: "招标公告", value: function (r, m) { return m.total; } },
-      { label: "个采购平台", value: function (r, m) { return m.sources; } },
+      { label: "个地区", value: function (r, m) { return m.provinces || "—"; } },
       { label: "7 天内截止", value: function (r, m) { return m.dueSoon; }, tone: "warn" },
       // 这里原本是「带预算金额 259」，259 是条数，标签却写着金额，量纲对不上。
       // 改成金额本身（亿），条数退到标签里说明口径。
@@ -200,6 +198,17 @@
 
     facets: [
       { key: "days", label: "截止时间", type: "days" },
+      {
+        // 「还没截止」是最常用的一个口径：把已过截止日的剔掉，
+        // 截止时间缺失的公告保留——那些多半只是原文没写，不代表不能投。
+        key: "active", label: "是否截止", type: "bool",
+        options: [{ label: "只看未截止", value: "1" }],
+        test: function (r, v) {
+          if (!v) return true;
+          var d = U.daysFrom(r.due);
+          return d === null || d >= 0;
+        }
+      },
       { key: "type", label: "公告类型", type: "multi", field: "type", top: 8 },
       {
         key: "cat", label: "行业", type: "multi", field: "cat", top: 8,
@@ -329,11 +338,13 @@
           ["行业", r.cat || "—"],
           ["地区", (r.prov || "") + (r.city ? " " + r.city : "")],
           ["发布日期", r.pub || "—"],
-          ["数据源", srcLabel(r.src)]
+          ["公告原文", "随详情附正文快照"]
         ]
       };
     }
   });})();
 </script>
+<script src="ai-chat.js"></script>
+<script src="nav-dropdown.js"></script>
 </body>
 </html>

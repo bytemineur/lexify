@@ -15,6 +15,18 @@ from .db import db_is_empty, db_writable
 from .web import Handler, QuietHTTPServer
 
 
+def ai_line(disabled=False):
+    """启动时一行 AI 状态，省得去猜入口为什么没出现。"""
+    try:
+        from . import ai as aimod
+        s = aimod.settings()
+    except Exception as e:
+        return "未启用（%s）" % e
+    if disabled or not s["enabled"]:
+        return "未启用 → 配置 LEXIFY_AI_API_KEY 或 DEEPSEEK_API_KEY 后重启"
+    return "已启用 · 模型 %s · Key 来源：%s" % (s["model"], s["keySource"])
+
+
 def main():
     setup_console()
     ap = argparse.ArgumentParser()
@@ -27,9 +39,12 @@ def main():
     ap.add_argument("--admin-open", action="store_true", help="不设防，允许任何人进后台（仅限内网）")
     ap.add_argument("--run-now", action="store_true", help="启动时先更新一次")
     ap.add_argument("--no-auto-crawl", action="store_true", help="库里没数据时不要自动采集")
+    ap.add_argument("--no-ai", action="store_true", help="关闭 AI 咨询入口（同 LEXIFY_AI_DISABLED=1）")
     args = ap.parse_args()
 
     import server.config as cfg
+    if args.no_ai:
+        os.environ["LEXIFY_AI_DISABLED"] = "1"
     if args.admin_token:
         cfg.ADMIN_TOKEN = args.admin_token
     if args.admin_open:
@@ -82,6 +97,7 @@ def main():
     print("站点：  %s/" % base)
     print("后台：  %s/admin" % base)
     print("定时：  %s" % ("关闭" if args.no_schedule else "每天 " + args.at))
+    print("AI 咨询：%s" % ai_line(args.no_ai))
     print("统一库：%s" % DB)
     print("运行于：%s（不依赖 shell，cmd / PowerShell / bash 都一样）" % compat_describe())
     if cfg.ADMIN_OPEN:

@@ -419,7 +419,7 @@ def _run_stream(label, args, cwd, env=None, on_line=None):
     return p.returncode, lines
 
 
-def do_crawl(only="", limit=0, pages=1, sites="", rebuild=True):
+def do_crawl(only="", limit=0, pages=0, sites="", rebuild=True):
     """采集器直接写统一库 → 重新导出。失败记进 crawl_failures。
 
     三个采集器（tender / bounty / hearing）各自独立，通过环境变量指到
@@ -432,8 +432,12 @@ def do_crawl(only="", limit=0, pages=1, sites="", rebuild=True):
 
     todo = []
     if only in ("", "tender"):
+        # 只有显式传了 --pages 才覆盖站点自己的 pagination.max_pages。
+        # 以前这里默认写死 --pages 1，把每个站点配好的 1~20 页压成 1 页，
+        # 采集量随之下滑（三块里招标那一块尤其明显）。
+        pages_args = ["--pages", str(pages)] if pages else []
         todo.append(("招标雷达", "tender", COL_TENDER,
-                     ["crawl.py", "--pages", str(pages)]
+                     ["crawl.py"] + pages_args
                      + (["--limit", str(limit)] if limit else [])
                      + (["--sites", sites] if sites else [])))
     if only in ("", "hearing"):
@@ -508,7 +512,8 @@ def main():
     ap.add_argument("--only", default="", choices=["", "tender", "hearing", "bounty"],
                     help="crawl 只采某一块")
     ap.add_argument("--limit", type=int, default=0, help="crawl 最多抓多少条/几个来源")
-    ap.add_argument("--pages", type=int, default=1, help="crawl 招标每个来源翻几页")
+    ap.add_argument("--pages", type=int, default=0,
+                    help="crawl 招标每站翻几页（默认 0 = 用各站点 pagination.max_pages）")
     ap.add_argument("--sites", default="", help="crawl 招标只跑指定来源（逗号分隔）")
     args = ap.parse_args()
 

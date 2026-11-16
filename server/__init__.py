@@ -9,6 +9,7 @@
     server.jobs       后台任务、定时更新、补跑
     server.docs       项目文档（Markdown 渲染 + 实时表结构）
     server.admin      后台管理页
+    server.ai         AI 咨询（扫项目建知识库 + DeepSeek 流式对话）
     server.web        HTTP Handler + 静态服务 + 路由
     server.cli        main() 参数与启动装配
 

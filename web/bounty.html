@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>执行悬赏 · Lexify</title>
+<title>执行悬赏 · lexify</title>
 <meta name="description" content="全国法院执行悬赏公告，拆出被执行人与执行标的，换算实际能拿到手的赏金，按标的额与比例筛选。">
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="board.css">
 <link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="ai-chat.css">
 </head>
 <body class="board-bounty">
 
@@ -20,14 +21,14 @@
           <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
         </svg>
     </span>
-    <span class="brand-text"><strong>Lexify</strong><em>法律数据洞察平台</em></span>
+    <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
   </a>
 
   <nav class="btabs" aria-label="看板切换">
-    <a href="tender.html" data-b="tender"><i class="bdot"></i>招标雷达</a>
-    <a href="hearing.html" data-b="hearing"><i class="bdot"></i>开庭公告</a>
-    <a href="bounty.html" data-b="bounty" class="on"><i class="bdot"></i>执行悬赏</a>
-  </nav>
+      <a href="tender.html" data-b="tender"><i class="bdot"></i>招标雷达</a>
+      <a href="hearing.html" data-b="hearing"><i class="bdot"></i>开庭公告</a>
+      <a href="bounty.html" data-b="bounty" class="on"><i class="bdot"></i>执行悬赏</a>
+    </nav>
 
   <div class="topbar-right">
       </div>
@@ -137,16 +138,13 @@
   }
 
   LexBoard({
+    key: "bounty",
     title: "执行悬赏",
     en: "Bounty Notice",
     tagline: "把「执行标的」「悬赏比例」「封顶金额」拆开算，得到的才是能到手的赏金，不是标的额。",
     dateField: "pub",
     amountField: "subject",
     search: ["debtor", "court", "caseNo", "body"],
-
-    metaExtra: function () {
-      return " · 数据源 <b>人民法院公告网 + 深圳/广州等地法院官网</b>";
-    },
 
     kpis: [
       { label: "悬赏公告", value: function (r, m) { return m.total; } },
@@ -176,13 +174,6 @@
           { label: "1000 万以上", min: 10000000, max: null },
           { label: "1 亿以上", min: 100000000, max: null }
         ]
-      },
-      {
-        key: "src", label: "数据源", type: "multi", field: "src",
-        labelOf: function (k) {
-          var m = { rmfygg: "人民法院公告网", court: "法院官网" };
-          return m[k] || k;
-        }
       }
     ],
 
@@ -308,7 +299,7 @@
         row("悬赏期限", (r.vfrom || "—") + " 至 " + (r.vto || "未注明")),
         row("发布日期", r.pub || "—"),
         row("联系电话", r.phone || "公告未披露"),
-        row("数据源", r.src === "rmfygg" ? "人民法院公告网" : "法院官网")
+        row("公告原文", "随详情附正文快照")
       ];
       return {
         title: r.debtor || "执行悬赏公告",
@@ -318,5 +309,7 @@
     }
   });})();
 </script>
+<script src="ai-chat.js"></script>
+<script src="nav-dropdown.js"></script>
 </body>
 </html>
