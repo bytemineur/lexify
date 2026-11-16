@@ -157,7 +157,7 @@ def init_db(force=False):
     ensure_schema()
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def ensure_schema(path=None, quiet=True):

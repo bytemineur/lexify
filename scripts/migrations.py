@@ -29,10 +29,58 @@ def _column_exists(conn, table: str, column: str) -> bool:
 
 
 # 迁移列表：(目标版本号, 迁移函数)。版本号必须严格递增。
-MIGRATIONS: list[tuple[int, callable]] = [
-    # 示例占位：当前 SCHEMA_VERSION=2，从 2 迁到 3 时在这里加一条。
-    # 目前没有需要回填的结构，保留这个框架，让未来第一次结构变更「有地方写」。
-]
+# 注意：这里是函数对象，不能写成字符串名字——列表在模块加载时就求值，
+# 写成字符串要到 migrate() 里调用时才炸（TypeError: 'str' object is not callable）。
+MIGRATIONS: list[tuple[int, callable]] = []
+
+
+def _v3_courts(conn):
+    """v3：新增法院通讯录 courts 与覆盖台账 court_coverage。
+
+    两张表本身在 schema.sql 里已有 CREATE TABLE IF NOT EXISTS，这里再写一遍
+    是为了让老库单独跑迁移也能补齐（不依赖 schema.sql 是否先执行过）。
+    """
+    conn.executescript("""
+CREATE TABLE IF NOT EXISTS courts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    short           TEXT,
+    level           TEXT,
+    province        TEXT,
+    city            TEXT,
+    address         TEXT,
+    postcode        TEXT,
+    phone           TEXT,
+    phone_day       TEXT,
+    phone_night     TEXT,
+    source          TEXT NOT NULL,
+    source_id       TEXT NOT NULL,
+    source_url      TEXT,
+    fetched_at      TEXT,
+    UNIQUE(source, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_courts_name ON courts(name);
+CREATE INDEX IF NOT EXISTS idx_courts_prov ON courts(province);
+CREATE INDEX IF NOT EXISTS idx_courts_city ON courts(city);
+CREATE INDEX IF NOT EXISTS idx_courts_lvl  ON courts(level);
+
+CREATE TABLE IF NOT EXISTS court_coverage (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL,
+    province        TEXT NOT NULL,
+    province_code   TEXT,
+    claimed         INTEGER,
+    fetched         INTEGER DEFAULT 0,
+    status          TEXT,
+    note            TEXT,
+    checked_at      TEXT,
+    UNIQUE(source, province)
+);
+""")
+
+
+# 迁移函数定义完之后再登记，避免前向引用
+MIGRATIONS.append((3, _v3_courts))
 
 
 def migrate(conn, target_version: int) -> list[str]:

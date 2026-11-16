@@ -187,5 +187,54 @@ CREATE INDEX IF NOT EXISTS idx_fail_source ON crawl_failures(source);
 CREATE INDEX IF NOT EXISTS idx_fail_open   ON crawl_failures(resolved, started_at);
 
 
+-- ── 法院通讯录 ─────────────────────────────────────────────
+-- 法院名称 / 地址 / 邮编 / 电话。数据源是 tool.110.com/fy.php（全国法院地址电话）。
+--
+-- 为什么单独一张表：hearings / notices 里的 court 只是一个名字（用于分组），
+-- 而「这家法院在哪、打哪个电话联系」是另一份资料，两类数据的变化节奏也不同
+-- （公告每天变，法院地址几年不变）。分表存，两边各不污染。
+--
+-- 覆盖缺口如实记录：源站整整缺海南、宁夏两个省的法院（其页内搜索也是坏的，
+-- 返回 SQL 报错）。这两个省在 coverage 里留一行 status='missing'，
+-- 不静默跳过——「没有」和「没抓到」是两件事，页面上必须能区分。
+CREATE TABLE IF NOT EXISTS courts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,              -- 法院全称，如 广州市越秀区人民法院
+    short           TEXT,                       -- 去掉「人民法院」的短名
+    level           TEXT,                       -- 高院 / 中院 / 基层 / 特殊 / NULL
+    province        TEXT,                       -- 省级行政区（归一后，如 广东省）
+    city            TEXT,
+    address         TEXT,
+    postcode        TEXT,                       -- 邮编
+    phone           TEXT,                       -- 源站原文，可能含「（昼）（夜）」多号
+    phone_day       TEXT,                       -- 拆出来的白天号码
+    phone_night     TEXT,                       -- 拆出来的夜间号码
+    source          TEXT NOT NULL,              -- fy110 / …
+    source_id       TEXT NOT NULL,              -- 源站 id
+    source_url      TEXT,
+    fetched_at      TEXT,
+    UNIQUE(source, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_courts_name ON courts(name);
+CREATE INDEX IF NOT EXISTS idx_courts_prov ON courts(province);
+CREATE INDEX IF NOT EXISTS idx_courts_city ON courts(city);
+CREATE INDEX IF NOT EXISTS idx_courts_lvl  ON courts(level);
+
+-- 每个省抓到了多少、缺了哪些。用来回答「这个源到底全不全」，
+-- 而不是让页面用「共 N 家」假装覆盖了全国。
+CREATE TABLE IF NOT EXISTS court_coverage (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL,
+    province        TEXT NOT NULL,
+    province_code   TEXT,                       -- 源站的省份编号
+    claimed         INTEGER,                    -- 源站该省声称的条数
+    fetched         INTEGER DEFAULT 0,          -- 实际入库条数
+    status          TEXT,                       -- ok / missing / failed
+    note            TEXT,
+    checked_at      TEXT,
+    UNIQUE(source, province)
+);
+
+
 -- 版本号由 manage.py 在 ensure_schema 里写，不在这里硬编码，
 -- 否则每次重复执行 schema 都会把版本号冲回去。
