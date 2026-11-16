@@ -8,6 +8,7 @@
 import gzip
 import io
 import random
+import re
 import ssl
 import time
 import urllib.error
@@ -71,13 +72,31 @@ class Http:
                 raw = zlib.decompress(raw, -zlib.MAX_WBITS)
             except zlib.error:
                 pass
-        charset = resp.headers.get_content_charset() or "utf-8"
+        charset = resp.headers.get_content_charset()
+        if charset and charset.lower() in ("gb2312", "gbk", "gb18030"):
+            charset = "gb18030"
+        if not charset:
+            # 很多法院站点（广州中院等）用 GBK 却不声明 charset。
+            # 先按页面里的 <meta> 猜，再按 utf-8 → gb18030 的实际解码成功率挑。
+            charset = self._sniff_charset(raw)
         if charset.lower() in ("gb2312", "gbk", "gb18030"):
             charset = "gb18030"
         try:
             return raw.decode(charset, "ignore")
         except LookupError:
             return raw.decode("utf-8", "ignore")
+
+    def _sniff_charset(self, raw):
+        """没声明 charset 时判断页面编码。"""
+        head = raw[:4096].decode("ascii", "ignore").lower()
+        m = re.search(r'charset\s*=\s*["\']?\s*([\w-]+)', head)
+        if m:
+            return m.group(1)
+        try:
+            raw.decode("utf-8")
+            return "utf-8"
+        except UnicodeDecodeError:
+            return "gb18030"
 
     def _is_ssl_err(self, e):
         if isinstance(e, ssl.SSLError):

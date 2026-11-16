@@ -23,32 +23,23 @@ SOURCE = "rmfygg"
 
 
 def _ao_data(start, length):
-    """DataTables 的 aoData 必须完整。
+    """DataTables 的 aoData。
 
-    服务端按 mDataProp_i 逐列取字段，只给 mDataProp_0 时查询会静默返回
-    iTotalRecords=0（不是报错），表现为"接口没数据"。
+    2026-11 站点接口收紧：完整的 DataTables 参数包（iColumns / mDataProp_i /
+    mDataSort_i / bSortable_i / bSearchable_i / sColumns 全套）现在会**静默
+    返回 iTotalRecords=0**，看上去像”没数据”，实际是服务端拒绝了这个组合。
+    最小可用的只有三个键：sEcho / iDisplayStart / iDisplayLength。
+
+    另外两点已验证：
+      - 缺 User-Agent 直接 403
+      - 同一个 IP 短时间内请求多了，会先变成「全部返回 0」，再变成 403，
+        冷却后恢复，所以采集必须低频（见 court_crawler 的 interval）
     """
-    ao = [
+    return [
         {"name": "sEcho", "value": 1},
-        {"name": "iColumns", "value": 6},
-        {"name": "sColumns", "value": ",,,,,"},
         {"name": "iDisplayStart", "value": start},
         {"name": "iDisplayLength", "value": length},
     ]
-    for i in range(6):
-        ao.append({"name": "mDataProp_%d" % i, "value": i})
-    for i in range(6):
-        ao.append({"name": "mDataSort_%d" % i, "value": i})
-    for i in range(6):
-        ao.append({"name": "bSortable_%d" % i, "value": "true"})
-    for i in range(6):
-        ao.append({"name": "bSearchable_%d" % i, "value": "true"})
-    ao.extend([
-        {"name": "sSearch", "value": ""},
-        {"name": "bRegex", "value": "false"},
-        {"name": "iSortingCols", "value": 0},
-    ])
-    return ao
 
 
 def fetch_page(http, keyword, start=0, length=None, notice_type="",
@@ -56,18 +47,14 @@ def fetch_page(http, keyword, start=0, length=None, notice_type="",
     length = length or config.PAGE_SIZE
     data = {
         P + "content": keyword,
-        P + "searchContent": "",
         P + "courtParam": court_name,
-        P + "IEVersion": "",
-        P + "flag": "init",
+        P + "flag": "court" if court_name else "content",
         P + "noticeType": notice_type,          # 类型代码，如 66
         P + "noticeTypeVal": notice_type_val,   # 类型中文名，如 开庭传票
-        P + "noticeSource": "",
         P + "sourceTypeVal": "全部",
-        P + "isWebCountNotice": "",
         P + "aoData": json.dumps(_ao_data(start, length), ensure_ascii=False),
     }
-    raw = http.request(LIST_URL, data=data, headers={
+    raw = http.request(LIST_URL + "&_=%d" % start, data=data, headers={
         "X-Requested-With": "XMLHttpRequest",
         "Referer": f"{BASE}/web/rmfyportal/noticeinfo",
         "Origin": BASE,

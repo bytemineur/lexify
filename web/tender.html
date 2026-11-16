@@ -189,6 +189,10 @@
     ],
 
     dayPresets: [
+      // 「未截止」放在最前：它是最常用的口径，和下面几个按天数的预设互斥，
+      // 同属「截止时间」这一组。截止时间缺失的公告保留——多半只是原文没写，
+      // 不代表不能投。
+      { key: "active", label: "未截止", test: function (d) { return d == null || d >= 0; } },
       { key: "d3", label: "3 天内截止", test: function (d) { return d != null && d >= 0 && d <= 3; } },
       { key: "d7", label: "7 天内截止", test: function (d) { return d != null && d >= 0 && d <= 7; } },
       { key: "d15", label: "15 天内截止", test: function (d) { return d != null && d >= 0 && d <= 15; } },
@@ -198,24 +202,12 @@
 
     facets: [
       { key: "days", label: "截止时间", type: "days" },
-      {
-        // 「还没截止」是最常用的一个口径：把已过截止日的剔掉，
-        // 截止时间缺失的公告保留——那些多半只是原文没写，不代表不能投。
-        key: "active", label: "是否截止", type: "bool",
-        options: [{ label: "只看未截止", value: "1" }],
-        test: function (r, v) {
-          if (!v) return true;
-          var d = U.daysFrom(r.due);
-          return d === null || d >= 0;
-        }
-      },
       { key: "type", label: "公告类型", type: "multi", field: "type", top: 8 },
       {
-        key: "cat", label: "行业", type: "multi", field: "cat", top: 8,
-        labelOf: function (k) {
-          var m = /^(.+?)[A-Z]\d{6,}$/.exec(k);
-          return m ? m[1] : k;
-        }
+        // 按采集源筛选：labelOf 同时做「显示中文名」和「归一键」，
+        // 所以筛选项显示的是「中国政府采购网」而不是 ccgp。
+        key: "src", label: "数据源", type: "multi", field: "src", top: 10,
+        labelOf: function (k) { return srcLabel(k); }
       },
       { key: "prov", label: "地区", type: "multi", field: "prov", top: 10 },
       {

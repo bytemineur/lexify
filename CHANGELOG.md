@@ -7,7 +7,39 @@
 
 ### Added
 
-- **前端改为实时读库（`server/data.py` + `/api/data/*`）**：页面不再依赖 `web/data/*.js` 静态快照，
+- **华南 + 江浙沪法院清单补全**：`collectors/_shared/court_registry.py` 按行政区划把
+  广东 21 市、广西 14 市、海南（含 15 个省直辖县市）、福建 9 市、江苏 13 市、浙江 11 市、
+  上海 16 区 的区县法院全部列出来，优先批次 **635 家**（高院 7 / 中院 82 / 基层 546），
+  全国清单 1,321 家。修掉三类名称拼接错误：`上海市市黄浦区`（直辖市不补「市」）、
+  `儋州市儋州市人民法院`、`吉林市市中级人民法院` / `郑州铁路市中级人民法院`（非地级市条目不再拼「市」）
+- **按法院遍历采集器 `collectors/nationwide`**：`stats` / `list` / `crawl` / `progress` 四个子命令，
+  按法院名逐个查人民法院公告网，把某一家法院的开庭传票、悬赏公告整批拉全，
+  补上关键词检索「说什么」之外的「谁发的」这一维。入库复用 bounty / hearing 的解析器，字段与现库一致
+- **采集账本 `collectors/_shared/crawl_ledger.py`**（`data/crawl_ledger.json`）：记录每家法院
+  每种模式的最后查询时间，重跑同一条命令自动跳过刚查过的、优先补没查过的，支持断点续跑与请求预算
+- **法院官网栏目的通用抓取**：`_shared/court_sites.py` 支持三套法院站点模板
+  （南方网 NFCMS `post_N.html`、人民法院 libs CMS `/article/detail/....shtml`、广州中院日期式详情页），
+  新增 `REGION_BOUNTY_SITES`（广州中院执行悬赏、珠海中院本院公告/开庭听证、佛山中院公告、
+  广东/福建/江苏高院工作公告、海南高院法院公告、镇江中院工作公告）
+- `scripts/crawl_court_sites.py`：单独跑法院官网栏目（`--dry` 只抓不写库）
+- `scripts/selftest_nationwide.py`：离线自测法院清单完整性、翻页、限流判定、请求预算、账本续跑
+
+### Fixed
+
+- **公告网接口静默返回 0（采集器「每次只采集一页」的根因）**：`rmfygg._ao_data()` 发的是完整
+  DataTables 参数包，服务端对新参数组合直接返回 `iTotalRecords=0`，看起来像「没有数据」。
+  改成只发 `sEcho` / `iDisplayStart` / `iDisplayLength` 三个键后恢复正常
+- **限流判定失效**：连续返回 0 的计数器原本在每家法院内部重置，阈值永远到不了，
+  限流时会白跑整张法院清单。改为跨法院累计
+- **法院站点 GBK 页面乱码**：广州中院等站点用 GBK 但不声明 `charset`，
+  `http.py` 现在先读 `<meta>`，再按 utf-8 → gb18030 的实际解码结果决定编码
+- **列表页 `href` 用单引号时整栏目被判空**：详情页正则改为两种引号都认
+- **法院官网栏目分页**：人民法院 libs CMS 的分页是 `/page/N.shtml` 而不是 `index_N.html`，
+  `court_sites.iter_site` 按模板分流，珠海中院「本院公告」因此从 0 条恢复到 67 条
+- `collectors/bounty` 悬赏入库实测 +15 条（广州中院执行悬赏，含天河/黄埔/从化/海珠法院）
+
+### Changed
+
   所有数字现查 SQLite。新增 `GET /api/data/health`、`/board/<key>`、`/stats/overview|trend|dist|upcoming`、
   `/sources`、`/tenders`（服务端筛选 + 分页）。看板页头标注「实时 · 数据库」，
   接口不可用时退回快照并明确标注「离线快照」，两者措辞不同，不让旧数据冒充现状
@@ -27,6 +59,14 @@
 
 ### Changed
 
+- **前端改为实时读库（`server/data.py` + `/api/data/*`）**：页面不再依赖 `web/data/*.js` 静态快照，
+  所有数字现查 SQLite。新增 `GET /api/data/health`、`/board/<key>`、`/stats/overview|trend|dist|upcoming`、
+  `/sources`、`/tenders`（服务端筛选 + 分页）。看板页头标注「实时 · 数据库」，
+  接口不可用时退回快照并明确标注「离线快照」，两者措辞不同，不让旧数据冒充现状
+- **吸收 tender-radar 的三个视图**：`dashboard.html`（招标看板：总量/未截止/7天内到期/预算合计 +
+  发布趋势 + 即将截止 + 区域与来源分布）、`radar.html`（快捷检索：服务端筛选 + 分页 + CSV）、
+  `sources.html`（采集来源：每个源的真实入库条数、最近运行结果与失败原因）。
+  原 `tender.html` 保留为「招标列表」，两页分工不同
 - **采集器按「一个看板一个采集器」重排**：原 `collectors/court`（一个目录塞了悬赏 + 开庭两张表 + 深圳/珠三角专项）
   拆成 `collectors/bounty`（执行悬赏 → notices 表）与 `collectors/hearing`（开庭公告 → hearings 表），
   共享的 http / regions / 法院名归一 / 公告网接口抽到 `collectors/_shared`。三个面板终于对应三个采集器

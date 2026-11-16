@@ -48,6 +48,90 @@ COURT_SITES = [
         "province": "广东省", "city": "深圳市",
     },
 ]
+
+# ---- 华南 + 江浙沪：中院官网悬赏 / 执行公告栏目 ----
+# 人民法院公告网被限流时的备用线路。每条都是实际抓取验证过能出公告的栏目；
+# 新增法院只需照抄结构，href_re 可覆盖默认的详情页模板。
+REGION_BOUNTY_SITES = [
+    {
+        # 广州中院执行悬赏公告，详情页 /other/zxgkw/zxxs/YYYY/MM/DDHHMMSSmmm.html
+        "court": "广州市中级人民法院",
+        "base": "https://www.gzcourt.gov.cn",
+        "prefix": "/other/zxgkw/zxxs",
+        "province": "广东省", "city": "广州市",
+        "notice_type": "执行悬赏公告",
+    },
+    {
+        # 珠海中院「本院公告」
+        "court": "珠海市中级人民法院",
+        "base": "http://www.zhcourt.gov.cn",
+        "entry": "/article/index/id/M8zJNTBIMiAOAAA.shtml",
+        "province": "广东省", "city": "珠海市",
+    },
+    {
+        # 珠海中院「开庭、听证公告」
+        "court": "珠海市中级人民法院",
+        "base": "http://www.zhcourt.gov.cn",
+        "entry": "/article/index/id/M8zJNTBIMjAwMiACAAA.shtml",
+        "province": "广东省", "city": "珠海市",
+        "notice_type": "开庭公告",
+    },
+    {
+        # 佛山中院「公告」栏目（南方网 NFCMS，420 条 20 页）
+        "court": "佛山市中级人民法院",
+        "base": "https://www.fszjfy.gov.cn",
+        "prefix": "/gzgg",
+        "province": "广东省", "city": "佛山市",
+    },
+    {
+        # 广东高院「工作公告」
+        "court": "广东省高级人民法院",
+        "base": "https://www.gdcourts.gov.cn",
+        "prefix": "/gsxx/fayuangonggao",
+        "province": "广东省", "city": "广州市",
+    },
+    {
+        # 海南高院「法院公告」
+        "court": "海南省高级人民法院",
+        "base": "https://www.hicourt.gov.cn",
+        "entry": "/article/index/id/MyhJMjAwNTAwNCACAAA.shtml",
+        "province": "海南省", "city": "海口市",
+    },
+    {
+        # 福建高院「法院公告」
+        "court": "福建省高级人民法院",
+        "base": "https://www.fjcourt.gov.cn",
+        "entry": "/page/public/personnelreport.html",
+        "province": "福建省", "city": "福州市",
+        "href_re": r"""href=["']([^"']*/Page/Court/News/ArticleTradition/[0-9a-f-]+\.html)["']""",
+    },
+    {
+        # 江苏高院「工作公告」
+        "court": "江苏省高级人民法院",
+        "base": "https://www.jsfy.gov.cn",
+        "entry": "/articles/16.html",
+        "province": "江苏省", "city": "南京市",
+        "href_re": r"""href=["'](/article/\d+\.html)["']""",
+    },
+    {
+        # 镇江中院「工作公告」
+        "court": "镇江市中级人民法院",
+        "base": "https://www.zjzy.gov.cn",
+        "entry": "/swgk/gzgg/",
+        "province": "江苏省", "city": "镇江市",
+        "href_re": r"""href=["'](/swgk/gzgg/\d{4}/\d{4}/\d+\.html)["']""",
+    },
+]
+
+# 合并进主配置（去重按 court + 入口）
+_seen_sites = set()
+for _s in COURT_SITES + REGION_BOUNTY_SITES:
+    _k = (_s["court"], _s.get("entry") or _s.get("prefix"))
+    if _k in _seen_sites:
+        continue
+    _seen_sites.add(_k)
+    if _s not in COURT_SITES:
+        COURT_SITES.append(_s)
 COURT_MAX_PAGES = 40
 
 # ---- 深圳专项：悬赏公告栏目（法院官网） ----

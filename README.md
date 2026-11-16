@@ -215,10 +215,54 @@ manage.py crawl
 | 区域 | 法院 | 来源 |
 |---|---|---|
 | 深圳 | 中院 + 10 个区法院 | 各法院官网公告栏目 + 开庭排期表 + 人民法院公告网 |
-| 广州 / 东莞 / 惠州 | 21 家基层法院（含广州互联网法院） | 全部走人民法院公告网，按法院检索 |
+| 广州 | 中院 + 11 个区法院 | 广州中院执行悬赏栏目 + 人民法院公告网 |
+| 华南 + 江浙沪（粤桂琼闽苏浙沪） | 635 家（高院 7 / 中院 82 / 基层 546） | 人民法院公告网按法院遍历 |
+| 全国 | 1,321 家法院清单 | `collectors/_shared/court_registry.py` |
 
 珠三角这批法院没有可用的官网悬赏/排期栏目，开庭时间只能从传票正文解析，
 所以「排期」是逐案的（`heaAt` + `room`），不是深圳盐田那种一张表看一周。
+
+### 按法院遍历人民法院公告网
+
+`python -m collectors.nationwide` 这一组命令，解决的是「关键词检索永远漏」的问题：
+关键词只能捞到「说了什么」的公告，按法院遍历才能把某一家法院的公告整批拉全。
+
+```bash
+python -m collectors.nationwide stats --priority   # 看清单
+python -m collectors.nationwide crawl --priority --only 开庭 --verbose
+python -m collectors.nationwide progress --priority
+```
+
+三个坑都是实测踩出来的，改代码时别退回去：
+
+1. **`aoData` 只发三个键**。完整的 DataTables 参数包（`iColumns` / `mDataProp_i` /
+   `mDataSort_i` / `bSortable_i` / `bSearchable_i`）会让接口**静默返回
+   `iTotalRecords=0`**，看上去像"这类公告没有"，实际是服务端拒了这个组合。
+2. **连续 0 计数要跨法院累计**。限流的典型表现是"每家法院都返回 0"，如果只在单家
+   法院内部计数，阈值永远到不了，会白跑整张清单。
+3. **账本断点续跑**。公告网对同一个 IP 会先"全返回 0"、再 403、冷却后恢复。一次跑不完
+   500 多家，所以 `data/crawl_ledger.json` 记下每家法院的最后查询时间，
+   重跑同一条命令会跳过刚查过的、优先补没查过的，不会每次都从头开始。
+
+### 法院官网栏目（公告网被封时的备用线路）
+
+```bash
+python scripts/crawl_court_sites.py --dry    # 只抓不写库
+python scripts/crawl_court_sites.py          # 写库
+```
+
+`collectors/bounty/config.py` 的 `REGION_BOUNTY_SITES` 是实测能出公告的栏目。
+抓取端 `_shared/court_sites.py` 支持三套法院站点模板，加法院只需要加一行配置：
+
+| 模板 | 详情页形态 | 分页 |
+|---|---|---|
+| 南方网 NFCMS | `/content/post_N.html` | `index_N.html` |
+| 人民法院 libs CMS | `/article/detail/YYYY/MM/id/N.shtml` | `/page/N.shtml` |
+| 广州中院 | `/other/zxgkw/zxxs/YYYY/MM/DDHHMMSSmmm.html` | 单页 |
+
+两个细节：HTML 里 `href` 用单引号很常见，正则必须两种引号都认，否则整个栏目会被判成
+"列表 0 条"；很多法院站点用 GBK 却不声明 `charset`，`http.py` 会按 `<meta>` 再按实际
+解码成功率猜编码。
 
 导出时做了几件必要的事：
 

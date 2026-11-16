@@ -1,12 +1,20 @@
 # -*- coding: utf-8 -*-
 """数据源：各地法院官网「悬赏公告 / 执行公告」栏目。
 
-目标站点均使用同一套 CMS（南方网 NFCMS 站群），栏目页是静态分页
-（index.html / index_2.html / ...），详情页为 /content/post_NNNN.html。
+覆盖两套常见的法院站点模板：
+
+1) 南方网 NFCMS 站群（深圳、佛山、广东高院…）
+   列表页是静态分页（index.html / index_2.html / ...），
+   详情页为 /content/post_NNNN.html。
+
+2) 人民法院「libs」CMS（珠海、广西、海南…）
+   详情页为 /article/detail/YYYY/MM/id/NNNN.shtml，列表页 /article/index/id/xxx.shtml。
+   广州中院用的是第三套：详情页 /other/zxgkw/zxxs/YYYY/MM/DDHHMMSSmmm.html。
+
 不同法院的列表模板在 class 名上有差异，但结构一致：
-    <li> ... <a href="...post_xxx.html">标题</a> ... 2026-09-30 ... </li>
-因此用「li 块 + 日期就近匹配」的规则通吃，新增法院只需在 config.COURT_SITES
-里加一行，无需改代码。
+    <li> ... <a href="...">标题</a> ... 2026-09-30 ... </li>
+因此用「li 块 + 日期就近匹配」的规则通吃，新增法院只需在 config 里加一行，
+无需改代码。
 
 正文提取：按已知容器 class 依次尝试，取命中内容最长的一个；全部落空时
 退化为整页去标签文本。
@@ -19,6 +27,15 @@ SCRIPT_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.S | re.I)
 DATE_RE = re.compile(r"(20\d{2}|19\d{2})[-/.](\d{1,2})[-/.](\d{1,2})")
 POST_RE = re.compile(r'href="([^"]*?/content/post_\d+\.html)"', re.I)
 PAGE_RE = re.compile(r"index_(\d+)\.html", re.I)
+
+# 详情页 URL 的三套模板；site 里可以用 "href_re" 覆盖
+# 注意：法院站点的 HTML 用单引号属性也很常见（href='/article/detail/...'），
+# 所以引号必须两种都认，否则整个栏目会被判成「列表 0 条」。
+DETAIL_PATTERNS = (
+    re.compile(r"""href=["']([^"']*?/content/post_\d+\.html)["']""", re.I),
+    re.compile(r"""href=["']([^"']*?/article/detail/\d{4}/\d{2}/id/\d+\.s?html)["']""", re.I),
+    re.compile(r"""href=["']([^"']*?/\d{4}/\d{2}/\d{10,}\.html)["']""", re.I),
+)
 
 # 详情页正文容器候选（按优先级）；命中多个时取文本最长者
 CONTENT_CLASSES = [
@@ -82,41 +99,47 @@ def _norm_date(s):
     return f"{y}-{mo:02d}-{d:02d}"
 
 
-def parse_list(html, base):
-    """解析栏目列表页，返回 [{url, title, publish_date}]（保序去重）。"""
+def parse_list(html, base, href_re=None):
+    """解析栏目列表页，返回 [{url, title, publish_date}]（保序去重）。
+
+    href_re: 可选的详情页 URL 正则（只取第 1 个分组）；不传则依次尝试
+    DETAIL_PATTERNS 里的三套模板。
+    """
+    pats = (re.compile(href_re, re.I),) if href_re else DETAIL_PATTERNS
     out, seen = [], set()
-    for m in POST_RE.finditer(html):
-        url = _abs_url(base, m.group(1))
-        if url in seen:
-            continue
-        seen.add(url)
-        block = _block_around(html, m.start())
+    for pat in pats:
+        for m in pat.finditer(html):
+            url = _abs_url(base, m.group(1))
+            if url in seen:
+                continue
+            seen.add(url)
+            block = _block_around(html, m.start())
 
-        # <a> 标签起点：href 之前可能还有 class / title 属性
-        a_start = html.rfind("<a", 0, m.start())
-        tag = html[a_start:m.end()] if a_start >= 0 else ""
-        tm = re.search(r'title="([^"]+)"', tag)
+            # <a> 标签起点：href 之前可能还有 class / title 属性
+            a_start = html.rfind("<a", 0, m.start())
+            tag = html[a_start:m.end()] if a_start >= 0 else ""
+            tm = re.search(r'title="([^"]+)"', tag)
 
-        gt = html.find(">", m.end())
-        inner_start = gt + 1 if gt > 0 else m.end()
-        inner = html[inner_start: inner_start + 600]
-        a_end = inner.lower().find("</a>")
-        if a_end > 0:
-            inner = inner[:a_end]
+            gt = html.find(">", m.end())
+            inner_start = gt + 1 if gt > 0 else m.end()
+            inner = html[inner_start: inner_start + 600]
+            a_end = inner.lower().find("</a>")
+            if a_end > 0:
+                inner = inner[:a_end]
 
-        title = _clean(tm.group(1)) if tm else _clean(inner)
-        title = re.sub(r"\s+", " ", title).strip()
-        # 列表模板常把日期塞在标题块里，清掉尾部日期
-        title = re.sub(r"\s*[\[(]?\s*(19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\s*[\])]?\s*$",
-                       "", title).strip()
-        if not title or len(title) < 4:
-            title = _clean(block)[:120]
+            title = _clean(tm.group(1)) if tm else _clean(inner)
+            title = re.sub(r"\s+", " ", title).strip()
+            # 列表模板常把日期塞在标题块里，清掉尾部日期
+            title = re.sub(r"\s*[\[(]?\s*(19|20)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\s*[\])]?\s*$",
+                           "", title).strip()
+            if not title or len(title) < 4:
+                title = _clean(block)[:120]
 
-        out.append({
-            "url": url,
-            "title": title,
-            "publish_date": _norm_date(block),
-        })
+            out.append({
+                "url": url,
+                "title": title,
+                "publish_date": _norm_date(block),
+            })
     return out
 
 
@@ -190,11 +213,51 @@ def _strip_boilerplate(text):
     return "\n".join(lines)
 
 
+def site_source_id(url, site):
+    """详情页 URL -> 稳定的 source_id。"""
+    m = re.search(r"post_(\d+)", url)
+    if m:
+        return m.group(1)
+    m = re.search(r"/id/(\d+)\.s?html", url)
+    if m:
+        return m.group(1)
+    m = re.search(r"/(\d{4})/(\d{2})/(\d{10,})\.html", url)
+    if m:
+        return "%s%s%s" % (m.group(1), m.group(2), m.group(3))
+    return re.sub(r"\W+", "_", url)[-60:]
+
+
+def site_start_url(site):
+    """栏目入口。prefix / entry 结尾不带 index.html 时也能用。"""
+    base = site["base"].rstrip("/")
+    prefix = site.get("prefix", "").rstrip("/")
+    if site.get("entry"):
+        return base + site["entry"]
+    if prefix.endswith((".html", ".shtml", ".htm", ".jsp", ".aspx")):
+        return base + prefix
+    return f"{base}{prefix}/index.html"
+
+
+def site_page_url(site, pno):
+    """栏目第 pno 页（pno 从 1 起）。不同 CMS 的分页规则不一样。"""
+    base = site["base"].rstrip("/")
+    prefix = site.get("prefix", "").rstrip("/")
+    tpl = site.get("page_tpl")
+    if tpl:
+        return base + tpl.format(n=pno)
+    entry = site.get("entry") or ""
+    if entry.endswith(".shtml"):          # 人民法院 libs CMS：/id/xxx/page/N.shtml
+        return base + entry.replace(".shtml", "/page/%d.shtml" % pno)
+    if entry:
+        return base + entry
+    return f"{base}{prefix}/index_{pno}.html"
+
+
 def iter_site(http, site, max_pages=0, verbose=True):
     """遍历某法院的一个栏目，产出统一原始记录 dict。"""
     base = site["base"].rstrip("/")
-    prefix = site.get("prefix", "").rstrip("/")
-    first_url = f"{base}{prefix}/index.html"
+    first_url = site_start_url(site)
+    href_re = site.get("href_re")
 
     if verbose:
         print(f"  [{site['court']}] {first_url}")
@@ -217,12 +280,12 @@ def iter_site(http, site, max_pages=0, verbose=True):
             page_html = html
         else:
             try:
-                page_html = http.get(f"{base}{prefix}/index_{pno}.html",
+                page_html = http.get(site_page_url(site, pno),
                                      headers={"Referer": first_url})
             except Exception as e:
                 print(f"    第 {pno} 页失败: {e}")
                 break
-        page_items = parse_list(page_html, base)
+        page_items = parse_list(page_html, base, href_re=href_re)
         if not page_items:
             break
         items.extend(page_items)
@@ -241,9 +304,9 @@ def iter_site(http, site, max_pages=0, verbose=True):
             continue
         yield {
             "source": SOURCE,
-            "source_id": re.search(r"post_(\d+)", it["url"]).group(1),
+            "source_id": site_source_id(it["url"], site),
             "url": it["url"],
-            "court": site["court"],
+            "court": it.get("court") or site["court"],
             "debtor": "",
             "publish_date": it.get("publish_date") or "",
             "notice_type": site.get("notice_type", "执行悬赏公告"),

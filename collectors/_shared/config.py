@@ -15,3 +15,11 @@ USER_AGENT = (
 
 # 公告网接口固定返回 15 条/页
 PAGE_SIZE = 15
+
+# 人民法院公告网的限流节奏（实测）：
+#   同一个 IP 连发十几次请求后，接口先「全部返回 0」，再变成 403，冷却后才恢复。
+#   所以法院遍历采集必须低频：每次请求至少间隔 RMFYGG_INTERVAL 秒，
+#   并且按 RMFYGG_DAILY_BUDGET 控制单次运行的总请求数，分批跑完。
+RMFYGG_INTERVAL = 8.0
+RMFYGG_DAILY_BUDGET = 900
+RMFYGG_COOLDOWN = 300.0      # 撞到 403 / 连续 0 之后冷却多久再试
