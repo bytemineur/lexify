@@ -116,7 +116,7 @@ lexify/
 │  └─ compat.py             # 跨平台底座：控制台 UTF-8、子进程环境、解释器定位
 ├─ tests/
 │  ├─ test_static.py        # 静态自检 123 项：离线自洽、链接、数据一致性、类名不撞车
-│  ├─ run_ui_test.py        # 交互回归 177 项：跑无头浏览器点真页面
+│  ├─ run_ui_test.py        # 交互回归 175 项：跑无头浏览器点真页面
 │  └─ selftest_board.js     # 上面那套断言，三个看板共用一份
 ├─ server/                  # 站点 + 后台 + AI 的 Python 实现（main.py 只是入口）
 │  ├─ ai.py                 # AI 咨询：扫项目建知识库 + DeepSeek 流式对话
@@ -499,7 +499,7 @@ python3 main.py
 
 ```bash
 python tests/test_static.py      # 123 项，秒级，无需浏览器
-python tests/run_ui_test.py      # 177 项（三块看板各 59 项），无头 Chrome / Edge 点真页面
+python tests/run_ui_test.py      # 175 项（招标 57 / 开庭 59 / 悬赏 59），无头 Chrome / Edge 点真页面
 python tests/run_ui_test.py bounty   # 只跑一块
 python scripts/selftest_nationwide.py # 法院遍历采集器离线自测（翻页 / 限流 / 账本）
 ```
@@ -607,7 +607,7 @@ python3 main.py                        # → http://<服务器>:8010/
 python main.py                    # 起服务（站点 + /admin + 定时）
 python scripts/manage.py crawl    # 采集
 python tests/test_static.py       # 静态自检 123 项（CI 跑这个）
-python tests/run_ui_test.py       # 交互回归 177 项（需 Chrome/Edge）
+python tests/run_ui_test.py       # 交互回归 175 项（需 Chrome/Edge）
 ```
 
 贡献前请先看 [CONTRIBUTING.md](CONTRIBUTING.md)，其中写了目录约定、加看板/修采集源的步骤和提交规范。
