@@ -78,7 +78,10 @@
       }
       var url = "api/data/board/" + encodeURIComponent(key) + "?t=" + Date.now();
       var ctl = window.AbortController ? new AbortController() : null;
-      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 20000);
+      // 超时给足：看板接口一次下发几 MB，服务器带宽慢时要几十秒（现已开 gzip，
+      // 招标约 0.84 MB）。原来 20 秒会在这类链路上直接 abort，用户看到的是
+      // 「退回离线快照」，误以为是数据没更新。宁可多等，也不要假装是旧数据。
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 60000);
       fetch(url, { cache: "no-store", signal: ctl ? ctl.signal : undefined })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
@@ -95,6 +98,11 @@
 
   window.LexBoard = function (CFG) {
     var KEY = CFG.key || (window.__BOARD__ && window.__BOARD__.key) || "";
+    // 慢网络下接口要等几秒，先给个占位提示，别让表格空着像坏了
+    var host = document.getElementById("tbody");
+    if (host && !host.children.length) {
+      host.innerHTML = '<tr><td colspan="9" class="empty">正在从数据库读取…</td></tr>';
+    }
     loadBoardData(KEY).then(function (got) {
       mount(CFG, got.data, got.live, got.reason);
     });

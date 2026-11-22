@@ -315,9 +315,23 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------- AI 咨询 ----------
     def _json(self, code, obj):
-        return self._send(code, json.dumps(obj, ensure_ascii=False),
-                          "application/json; charset=utf-8",
-                          {"Cache-Control": "no-store"})
+        """返回 JSON。大响应会 gzip。
+
+        为什么要压：看板接口一次下发几 MB（招标约 4.7 MB），服务器上带宽只有
+        200 KB/s 左右，不压要 20 秒以上，前端 20 秒超时就把请求 abort 掉、
+        退回离线快照——用户看到的是「又慢又是旧数据」。公告正文里有大量重复的
+        中文与 HTML 片段，gzip 能压到十分之一左右。
+
+        小响应（< 1 KB）不压：省不下多少，反而多一层开销。
+        """
+        data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        headers = {"Cache-Control": "no-store"}
+        accepts_gzip = "gzip" in (self.headers.get("Accept-Encoding") or "")
+        if accepts_gzip and len(data) >= 1024:
+            data = gzip.compress(data, 6)
+            headers["Content-Encoding"] = "gzip"
+            headers["Vary"] = "Accept-Encoding"
+        return self._send(code, data, "application/json; charset=utf-8", headers)
 
     # ---------- 实时数据 ----------
     def _data_api(self, path, query):
