@@ -40,7 +40,7 @@ COL_BOUNTY = os.path.join(ROOT, "collectors", "bounty")
 COL_HEARING = os.path.join(ROOT, "collectors", "hearing")
 
 
-TABLES = ("tenders", "sources", "hearings", "notices")
+TABLES = ("tenders", "sources", "hearings", "notices", "false_claims")
 
 # 每张表允许写入的列（多了忽略，少了留空）
 COLS = {
@@ -62,6 +62,9 @@ COLS = {
                 "reward_fixed", "reward_est", "reward_type", "publish_date",
                 "valid_from", "valid_to", "contact_phone", "content", "content_hash",
                 "parse_quality", "raw_json", "fetched_at", "parsed_at"],
+    "false_claims": ["source", "source_id", "sec_code", "sec_name", "board", "stage",
+                     "scope", "org", "types", "title", "ann_date", "first_date",
+                     "event_no", "url", "fetched_at", "parsed_at"],
 }
 
 # 源库里的表名 → (目标表, 类型)
@@ -70,13 +73,15 @@ TABLE_MAP = {"tenders": ("tenders", "tender"),
              "hearings": ("hearings", "hearing"),
              "notices": ("notices", "bounty")}
 
-KIND_TO_TABLE = {"tender": "tenders", "hearing": "hearings", "bounty": "notices"}
+KIND_TO_TABLE = {"tender": "tenders", "hearing": "hearings", "bounty": "notices",
+                 "falseclaim": "false_claims"}
 
 # 文件导入时靠字段名认类型，认不出来才要求 --kind
 KIND_SIGNATURE = {
     "tender": {"title", "purchaser", "budget_amount", "notice_type", "deadline", "agency"},
     "hearing": {"hearing_date", "hearing_at", "defendant", "plaintiff", "cause", "case_no"},
     "bounty": {"debtor", "reward_ratio", "subject_amount", "reward_est", "reward_cap"},
+    "falseclaim": {"sec_code", "sec_name", "stage", "ann_date", "types", "org"},
 }
 
 
@@ -157,7 +162,7 @@ def init_db(force=False):
     ensure_schema()
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def ensure_schema(path=None, quiet=True):
@@ -505,12 +510,14 @@ def main():
     ap = argparse.ArgumentParser(description="Lexify 数据管理")
     ap.add_argument("cmd", choices=["init", "add", "crawl", "build", "push", "update", "stats", "failures"])
     ap.add_argument("file", nargs="?", help="add / update 时的数据文件")
-    ap.add_argument("--kind", default="", choices=["", "tender", "hearing", "bounty"])
+    ap.add_argument("--kind", default="",
+                    choices=["", "tender", "hearing", "bounty", "falseclaim"])
     ap.add_argument("--source", default="", help="补 source 字段（文件导入用）")
     ap.add_argument("--no-build", action="store_true", help="不重新导出")
     ap.add_argument("--force", action="store_true", help="init 时备份并重建（清空数据）")
-    ap.add_argument("--only", default="", choices=["", "tender", "hearing", "bounty"],
-                    help="crawl 只采某一块")
+    ap.add_argument("--only", default="",
+                    choices=["", "tender", "hearing", "bounty", "falseclaim"],
+                    help="crawl / build 只处理某一块")
     ap.add_argument("--limit", type=int, default=0, help="crawl 最多抓多少条/几个来源")
     ap.add_argument("--pages", type=int, default=0,
                     help="crawl 招标每站翻几页（默认 0 = 用各站点 pagination.max_pages）")

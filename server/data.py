@@ -26,7 +26,8 @@ from datetime import date, datetime, timedelta
 from .config import DB
 
 # 三个看板 → 库里的表。导出口径与 build_data.py 保持一致，避免两边对不上。
-BOARD_TABLES = {"tender": "tenders", "hearing": "hearings", "bounty": "notices"}
+BOARD_TABLES = {"tender": "tenders", "hearing": "hearings", "bounty": "notices",
+                "falseclaim": "false_claims"}
 
 # 只取「主记录、非结果公告」的口径（与 build_data.py 的导出一致）
 _PRIMARY = "(is_primary IS NOT 0 OR cluster_id IS NULL)"
@@ -144,6 +145,8 @@ def board(key):
             return _board_tender(conn, rows)
         if key == "hearing":
             return _board_hearing(conn, rows)
+        if key == "falseclaim":
+            return _board_falseclaim(conn, rows)
         return _board_bounty(conn, rows)
     finally:
         conn.close()
@@ -156,9 +159,10 @@ def is_primary_ok(cols):
 def _empty_board(key):
     base = {"key": key, "rows": [], "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M")}
     return dict(base, name={"tender": "招标雷达", "hearing": "开庭公告",
-                            "bounty": "执行悬赏"}.get(key, key),
+                            "bounty": "执行悬赏", "falseclaim": "证券虚假陈述"}.get(key, key),
                 en={"tender": "Tender Radar", "hearing": "Hearing Docket",
-                    "bounty": "Bounty Notice"}.get(key, ""),
+                    "bounty": "Bounty Notice",
+                    "falseclaim": "Misrepresentation Claims"}.get(key, ""),
                 tagline="", meta={"total": 0, "generatedAt": base["generatedAt"]})
 
 
@@ -296,6 +300,47 @@ def _board_bounty(conn, rows):
             "rewardSum": reward_sum,
             "provinces": len({x["prov"] for x in out if x["prov"]}),
             "organizations": len({x["court"] for x in out if x["court"]}),
+        },
+    }
+
+
+def _board_falseclaim(conn, rows):
+    """证券虚假陈述：一行 = 一条公告事件（立案 / 事先告知 / 处罚决定 / 诉讼）。"""
+    out = []
+    for r in rows:
+        try:
+            types = json.loads(r["types"]) if r["types"] else []
+        except (TypeError, ValueError, KeyError):
+            types = []
+        out.append({
+            "id": r["id"],
+            "code": r["sec_code"] or "",
+            "name": r["sec_name"] or "",
+            "board": r["board"] or "",
+            "stage": r["stage"] or "other",
+            "org": r["org"] or "",
+            "types": types,
+            "title": r["title"] or "",
+            "date": (r["ann_date"] or "")[:10],
+            "first": (r["first_date"] or "")[:10],
+            "no": r["event_no"] or 1,
+            "url": r["url"] or "",
+        })
+    stages = {}
+    for x in out:
+        stages[x["stage"]] = stages.get(x["stage"], 0) + 1
+    return {
+        "key": "falseclaim", "name": "证券虚假陈述", "en": "Misrepresentation Claims",
+        "tagline": "证监会立案与行政处罚公告，按公司攒成链条。",
+        "rows": out,
+        "meta": {
+            "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "total": len(out),
+            "companies": len({x["code"] for x in out if x["code"]}),
+            "decision": stages.get("decision", 0),
+            "notice": stages.get("notice", 0),
+            "investigation": stages.get("investigation", 0),
+            "litigation": stages.get("litigation", 0),
         },
     }
 

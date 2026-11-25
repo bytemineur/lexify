@@ -264,6 +264,63 @@ def build_bounty(db_path):
     }
 
 
+def build_falseclaim(db_path):
+    """证券虚假陈述：一行是一条处罚/立案公告，按公司聚合后能看出完整处罚链条。
+
+    types 存的是 JSON 数组字符串，导出成数组给前端；first 是该公司的首个事件日，
+    按司法解释的口径，投资者索赔区间一般从「首次被市场知悉」算起，用它当参考起点。
+    """
+    conn = connect(db_path)
+    rows = []
+    for r in conn.execute(
+            "SELECT id, sec_code, sec_name, board, stage, org, types, title, ann_date,"
+            " first_date, event_no, url"
+            " FROM false_claims ORDER BY ann_date DESC, sec_code, event_no"):
+        try:
+            types = json.loads(r["types"]) if r["types"] else []
+        except (TypeError, ValueError):
+            types = []
+        rows.append({
+            "id": r["id"],
+            "code": r["sec_code"] or "",
+            "name": r["sec_name"] or "",
+            "board": r["board"] or "",
+            "stage": r["stage"] or "other",
+            "org": r["org"] or "",
+            "types": types,
+            "title": r["title"] or "",
+            "date": r["ann_date"] or "",
+            "first": r["first_date"] or "",
+            "no": r["event_no"] or 1,
+            "url": r["url"] or "",
+        })
+    conn.close()
+
+    companies = {x["code"] for x in rows if x["code"]}
+    stages = {}
+    for x in rows:
+        stages[x["stage"]] = stages.get(x["stage"], 0) + 1
+    recent = max([x["date"] for x in rows if x["date"]], default="")
+    return {
+        "key": "falseclaim",
+        "name": "证券虚假陈述",
+        "en": "Misrepresentation Claims",
+        "tagline": "把证监会立案、行政处罚事先告知、处罚决定这几类公告攒成链条，"
+                   "看谁刚被查、谁已经可以被投资者起诉。",
+        "rows": rows,
+        "meta": {
+            "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "total": len(rows),
+            "companies": len(companies),
+            "decision": stages.get("decision", 0),
+            "notice": stages.get("notice", 0),
+            "investigation": stages.get("investigation", 0),
+            "litigation": stages.get("litigation", 0),
+            "lastDate": recent,
+        },
+    }
+
+
 def write_board(board):
     board.pop("_provs", None)
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -371,6 +428,7 @@ def main():
         "tender": build_tender(db_path),
         "hearing": build_hearing(db_path),
         "bounty": build_bounty(db_path),
+        "falseclaim": build_falseclaim(db_path),
     }
     all_provs = set()
     for b in boards.values():

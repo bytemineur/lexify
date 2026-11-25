@@ -7,6 +7,15 @@
 
 ### Added
 
+- **新看板：证券虚假陈述 `falseclaim.html`**。数据来自巨潮资讯的公司公告全文检索
+  （`POST cninfo.com.cn/new/hisAnnouncement/query`，四个入口词：行政处罚决定书 / 行政处罚事先告知书 /
+  立案告知书 / 虚假陈述），先过滤掉地方环保税务处罚与第三方核查文书，再按标题分阶段
+  （行政处罚决定 / 事先告知 / 立案调查 / 投资者诉讼 / 监管措施）、分违规类型（虚假记载 / 重大遗漏 /
+  误导性陈述）、按代码判板块，同一公司按公告日排序回填「首个事件日」（≈揭露日）与事件序号。
+  全量 1,331 条、覆盖 624 家上市公司（立案 414 / 事先告知 375 / 处罚决定 457 / 诉讼 72），
+  采集器 `collectors/falseclaim/fetch.py`，入库 `false_claims` 表，导出 `web/data/falseclaim.js`，
+  页面复用看板引擎（处理阶段 / 板块 / 日期三个筛选 + 详情弹窗 + CSV 导出），导航「产品」下拉加一项；
+  schema 升到 **v5**（`_v5_falseclaim`），`server/data.py` 的 `board()` 也支持这个新看板
 - **`config.yaml`：一个文件放全部配置**。`server`（bind / port / update_at / schedule）、
   `admin`（token / open）、`db.path`、`ai`（api_key / base_url / model / thinking / timeout）、
   `analytics`（enabled / retention_days / respect_dnt / hash_salt）、`crawl.publish`。

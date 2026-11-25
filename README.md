@@ -24,6 +24,7 @@
 | 招标雷达 `tender.html` | 1,398 条 | 哪些法律服务采购还在投标期内 | 预算、投标截止、采购人、数据类型、地区 |
 | 开庭公告 `hearing.html` | 1,224 条 | 哪个企业刚收到传票、还没委托律师 | 开庭时间、被告类型、案由、涉案金额、法院 |
 | 执行悬赏 `bounty.html` | 695 条 | 哪个被执行人值得提供线索 | 执行标的、悬赏比例、预估赏金、有效期 |
+| 证券虚假陈述 `falseclaim.html` | 1,331 条事件 / 624 家公司 | 哪家上市公司刚被证监会立案、处罚，可以替投资者索赔 | 处理阶段、处罚机关、公告日、首个事件日、原文链接 |
 
 > 上表是当前库的规模，**每天采集后会变**。首页的汇总数字同理，以页面实际显示为准。
 > 招标库内 1,858 条，页面 1,398 条——差的是同一公告的转载与关联条目（`is_primary` 去重后才是页面数）。
@@ -53,7 +54,7 @@
 看起来有几千条、库里可能一条没有。现在看板页头标「**实时 · 数据库**」；
 只有后端没起或 `file://` 打开时才退回快照，并明确标「**离线快照**」——两种标注措辞不同，不混淆。
 
-**页面清单**（4 个数据页 + 4 个子页）：
+**页面清单**（5 个数据页 + 4 个子页）：
 
 | 页面 | 定位 |
 |---|---|
@@ -61,12 +62,13 @@
 | `tender.html` | 招标列表：前端筛选全量数据 + 详情弹窗 + 侧栏分布 |
 | `hearing.html` | 开庭公告 |
 | `bounty.html` | 执行悬赏 |
+| `falseclaim.html` | 证券虚假陈述：证监会立案 / 事先告知 / 处罚决定的公告链条，投资者索赔线索 |
 | `pricing.html` | 定价：公测期 0 元，写清收费口径 |
 | `about.html` | 关于：产品是什么、给谁用、边界 |
 | `terms.html` | 用户协议（页脚入口，口径与边界） |
 | `privacy.html` | 隐私政策（写了访问统计到底收什么） |
 
-> 顶栏导航：**产品**（下拉：招标雷达 / 开庭公告 / 执行悬赏）、**定价**、**关于**；桌面端导航居中、顶栏 sticky 固定在顶部。
+> 顶栏导航：**产品**（下拉：招标雷达 / 开庭公告 / 执行悬赏 / 证券虚假陈述）、**定价**、**关于**；桌面端导航居中、顶栏 sticky 固定在顶部。
 > 八张页面共用同一份导航标记 —— 三个看板页也不再有自己的「胶囊页签」，切板块统一走「产品」下拉（触屏点一下展开、点第二下收起）。
 > 用户协议 / 隐私政策不再占一级菜单，入口仍在页脚的链接里。`/docs` 是内部文档（架构 / 数据库 / 部署 / 实时表结构），默认只给后台访问。
 
@@ -104,7 +106,7 @@ lexify/
 │  ├─ fonts/                # 自托管字体，不引 Google Fonts
 │  ├─ favicon-32/64.png
 │  └─ data/                 # 由 scripts/manage.py 从库里导出，不要手改
-│     ├─ tender.js  hearing.js  bounty.js
+│     ├─ tender.js  hearing.js  bounty.js  falseclaim.js
 │     └─ overview.js
 ├─ docs/                    # 说明文档 + 设计资源（docs/assets/）
 ├─ data/                    # schema.sql 进 git；lexify.db 与采集账本不进
@@ -113,6 +115,7 @@ lexify/
 │  ├─ tender/               # 招标雷达（34 个站点 yaml）
 │  ├─ bounty/               # 执行悬赏 → notices
 │  ├─ hearing/              # 开庭公告 → hearings
+│  ├─ falseclaim/           # 证券虚假陈述（巨潮资讯证监会处罚公告）→ false_claims
 │  ├─ nationwide/           # 按法院遍历公告网（华南 + 江浙沪优先批次）
 │  └─ courtbook/            # 法院通讯录 → courts
 ├─ scripts/
@@ -205,7 +208,8 @@ python main.py
 ```bash
 python scripts/manage.py crawl            # 三块一起采 → 去重入库 → 自动重新导出
 python scripts/manage.py crawl --only tender --pages 5   # 只采招标，并覆盖各站点的翻页数
-python scripts/manage.py add 新数据.db    # 外部数据入库（去重）+ 自动重新导出
+python -m collectors.falseclaim           # 证券虚假陈述：巨潮资讯全量拉一遍（约 70 秒）→ 写 out/*.json
+python scripts/manage.py add collectors/falseclaim/out/falseclaim_YYYYMMDD.json --kind falseclaim
 python scripts/manage.py stats            # 看库里有什么
 python scripts/manage.py failures         # 看采集/导入失败记录
 ```

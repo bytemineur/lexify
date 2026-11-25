@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-mlp="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>证券虚假陈述 · lexify</title>
+<meta name="description" content="巨潮资讯上的证监会立案、行政处罚事先告知与处罚决定公告，按上市公司攒成链条，用来判断谁已经可以被投资者起诉，以及索赔区间大概从哪天算。">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="board.css">
+<link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="ai-chat.css">
+</head>
+<body class="board-falseclaim">
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
+        </svg>
+    </span>
+    <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
+  </a>
+
+  <nav class="nav" id="nav">
+    <div class="nav-drop">
+      <a href="tender.html" class="on" aria-haspopup="true">产品</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="tender.html"><b>招标雷达</b><em>Tender Radar</em></a>
+        <a role="menuitem" href="hearing.html"><b>开庭公告</b><em>Hearing Docket</em></a>
+        <a role="menuitem" href="bounty.html"><b>执行悬赏</b><em>Bounty Notice</em></a>
+        <a role="menuitem" href="falseclaim.html" aria-current="page"><b>证券虚假陈述</b><em>Misrepresentation</em></a>
+      </div>
+    </div>
+    <a href="pricing.html">定价</a>
+    <a href="about.html">关于</a>
+  </nav>
+
+  <div class="topbar-right">
+    <button class="icon-btn" id="btnSearch" title="全站检索（⌘K）" aria-label="检索">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="11" cy="11" r="6.4"/><path d="m16 16 4.2 4.2"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="bhead">
+  <div class="wrap">
+    <div class="bhead-in">
+      <h1 id="bTitle"></h1>
+      <div class="bhead-row">
+        <p class="sub" id="bSub"></p>
+        <div class="bhead-meta" id="bMeta"></div>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </div>
+</div>
+
+<div class="filters">
+  <div class="wrap" id="facets"></div>
+</div>
+
+<main class="board-main">
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="tsearch">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="6.6"/><path d="m16.2 16.2 4.3 4.3"  />
+        </svg>
+        <input id="q" type="search" placeholder="搜公司、代码、公告标题…" autocomplete="off">
+      </div>
+      <span class="tcount" id="tcount"></span>
+      <button class="btn-sm" id="btnReset">清空筛选</button>
+      <button class="btn-sm solid" id="btnExport">导出 CSV</button>
+    </div>
+
+    <div class="mgrid">
+      <div class="twrap">
+        <div class="tscroll">
+          <table class="list">
+            <thead id="thead"></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+      <aside class="aside" id="aside"></aside>
+    </div>
+  </div>
+</main>
+
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="modal-mask" data-close></div>
+  <div class="modal-box">
+    <div class="modal-h">
+      <div>
+        <h3 id="mTitle"></h3>
+        <div class="sub" id="mSub"></div>
+      </div>
+      <button class="modal-x" data-close>×</button>
+    </div>
+    <div class="modal-b" id="mBody"></div>
+    <div class="modal-f">
+      <a class="btn-sm" id="mLink" target="_blank" rel="noopener">去巨潮资讯看原文</a>
+      <button class="btn-sm" data-close>关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="data/falseclaim.js"></script>
+<script src="board.js"></script>
+<script>
+(function () {
+  var U = window.LexUtil;
+  var esc = U.esc, raw = U.raw;
+
+  var STAGE_LABEL = {
+    decision: "行政处罚决定",
+    notice: "事先告知",
+    investigation: "立案调查",
+    litigation: "投资者诉讼",
+    measure: "监管措施",
+    other: "其他公告"
+  };
+  var STAGE_TONE = {
+    decision: "warn", notice: "accent", investigation: "mc",
+    litigation: "", measure: "", other: ""
+  };
+
+  function clip(s, n) {
+    s = s || "";
+    if (s.length <= n) return s;
+    return s.slice(0, n) + "…";
+  }
+
+  function stageTag(s) {
+    if (!s) return "";
+    var tone = STAGE_TONE[s];
+    var cls = "tag" + (tone ? " " + tone : "");
+    return '<span class="' + cls + '">' + esc(STAGE_LABEL[s] || s) + "</span>";
+  }
+
+  // 证监会全称太长，列里放不下：统一缩成「证监会 + 地方局」的写法，
+  // 详情里仍然展示完整名称（title 属性也保留了原文）。
+  function shortOrg(org) {
+    if (!org) return "—";
+    return org.replace(/^中国证券监督管理委员会/, "证监会")
+              .replace(/^中国证监会/, "证监会");
+  }
+
+  function typesText(r) {
+    if (!r.types || !r.types.length) return "";
+    return r.types.map(function (t) { return esc(t); }).join(" · ");
+  }
+
+  LexBoard({
+    key: "falseclaim",
+    title: "证券虚假陈述",
+    en: "Misrepresentation Claims",
+    tagline: "证监会立案、事先告知、行政处罚决定这几类公告攒在一起，谁刚被查、谁已经可以被投资者起诉，一眼能看出来。",
+    dateField: "date",
+    search: ["name", "code", "title", "org", "board"],
+
+    kpis: [
+      { label: "公告事件", value: function (r, m) { return m.total; } },
+      { label: "家上市公司", value: function (r, m) { return m.companies; } },
+      { label: "已出处罚决定", value: function (r, m) { return m.decision; }, tone: "accent" },
+      { label: "立案调查中", value: function (r, m) { return m.investigation; }, tone: "warn" }
+    ],
+
+    dayPresets: [
+      { key: "p7", label: "近 7 天", test: function (d) { return d != null && d >= -7 && d <= 0; } },
+      { key: "p30", label: "近 30 天", test: function (d) { return d != null && d >= -30 && d <= 0; } },
+      { key: "p90", label: "近 90 天", test: function (d) { return d != null && d >= -90 && d <= 0; } },
+      { key: "p365", label: "近一年", test: function (d) { return d != null && d >= -365 && d <= 0; } }
+    ],
+
+    facets: [
+      { key: "stage", label: "处理阶段", type: "multi", field: "stage",
+        labelOf: function (k) { return STAGE_LABEL[k] || k; } },
+      { key: "board", label: "上市板块", type: "multi", field: "board", top: 6 },
+      { key: "days", label: "公告日期", type: "days" }
+    ],
+
+    sort: { key: "date", dir: "desc" },
+
+    columns: [
+      {
+        key: "name", label: "公司 / 代码", w: "20%",
+        render: function (r) {
+          var main = '<span class="t-main" title="' + esc(r.name) + '">' + esc(r.name || "—") + "</span>";
+          var sub = r.code + (r.board ? " · " + r.board : "") +
+                    (r.no > 1 ? " · 第 " + r.no + " 条" : "");
+          return main + stageTag(r.stage) +
+                 '<span class="t-sub" title="' + esc(sub) + '">' + esc(sub) + "</span>";
+        }
+      },
+      {
+        key: "title", label: "公告标题", w: "36%",
+        render: function (r) {
+          var main = '<span class="t-main" title="' + esc(r.title) + '">' +
+                     esc(clip(r.title || "—", 34)) + "</span>";
+          var t = typesText(r);
+          return main + (t ? '<span class="t-sub">' + t + "</span>" : "");
+        }
+      },
+      {
+        key: "org", label: "处罚机关", w: "16%",
+        render: function (r) {
+          var main = '<span class="t-main" title="' + esc(r.org || "") + '">' +
+                     esc(clip(shortOrg(r.org), 10)) + "</span>";
+          var sub = r.no > 1 ? "该公司共 " + r.no + " 条记录" : "首次公告";
+          return main + '<span class="t-sub">' + esc(sub) + "</span>";
+        }
+      },
+      {
+        key: "date", label: "公告日", w: "14%", firstDir: "desc",
+        render: function (r) {
+          var head = '<span class="t-main">' + esc(r.date || "—") + "</span>";
+          var d = U.daysFrom(r.date);
+          var sub = "";
+          if (d != null) sub = d <= 0 ? (Math.abs(d) + " 天前") : (d + " 天后");
+          return head + '<span class="t-sub">' + esc(sub) + "</span>";
+        }
+      },
+      {
+        key: "first", label: "首个事件日", w: "14%",
+        render: function (r) {
+          var head = '<span class="t-main">' + esc(r.first || "—") + "</span>";
+          return head + '<span class="t-sub">区间起点</span>';
+        }
+      }
+    ],
+
+    dist: [
+      { label: "阶段分布", field: "stage", top: 5, emptyLabel: "其他",
+        labelOf: function (k) { return STAGE_LABEL[k] || k; } },
+      { label: "板块分布", field: "board", top: 5, emptyLabel: "未识别" }
+    ],
+
+    presets: [
+      {
+        label: "已出处罚决定",
+        test: function (r) { return r.stage === "decision"; },
+        apply: function (st) { st.multi.stage = { decision: true }; }
+      },
+      {
+        label: "立案调查中",
+        test: function (r) { return r.stage === "investigation"; },
+        apply: function (st) { st.multi.stage = { investigation: true }; }
+      },
+      {
+        label: "近 30 天新公告",
+        test: function (r) {
+          var d = U.daysFrom(r.date);
+          return d != null && d >= -30 && d <= 0;
+        },
+        apply: function (st) { st.days = "p30"; }
+      }
+    ],
+
+    asideNote: "数据来自巨潮资讯（cninfo）的上市公司公告，只做「公告层面」的整理：" +
+      "谁被立案、谁收到事先告知、谁已经拿到处罚决定。处罚决定书原文里才有违法事实、" +
+      "责任人与罚款金额，点详情去看原文。索赔区间以法院认定为准，这里的「首个事件日」只是参考起点。",
+
+    bodyEmpty: "（这条没有正文快照：公告原文是 PDF，点「去巨潮资讯看原文」查看）",
+
+    detail: function (r) {
+      var row = function (k, v) { return [k, v]; };
+      var kv = [
+        row("公司", raw(esc(r.name || "—") + "（" + esc(r.code || "—") + "）")),
+        row("上市板块", r.board || "—"),
+        row("处理阶段", raw(stageTag(r.stage) || "—")),
+        row("违规类型", typesText(r) || "公告标题未写明"),
+        row("处罚机关", r.org || "—"),
+        row("公告日期", r.date || "—"),
+        row("首个事件日", r.first || "—"),
+        row("公告标题", r.title || "—")
+      ];
+      return {
+        title: r.name || "证券虚假陈述线索",
+        sub: (r.code || "") + (r.board ? " · " + r.board : "") + " · " + (r.date || ""),
+        kv: kv
+      };
+    }
+  });
+})();
+</script>
+<script src="ai-chat.js"></script>
+<script src="nav-dropdown.js"></script>
+<script src="search.js"></script>
+<script src="track.js"></script>
+</body>
+</html>

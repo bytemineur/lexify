@@ -122,6 +122,41 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_vid ON page_views(vid);
 MIGRATIONS.append((4, _v4_analytics))
 
 
+def _v5_falseclaim(conn):
+    """v5：新增证券虚假陈述线索表 false_claims（第四块看板）。
+
+    数据来自巨潮资讯的证监会处罚/立案公告，纯新增表，老库补一张就行。
+    """
+    conn.executescript("""
+CREATE TABLE IF NOT EXISTS false_claims (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL DEFAULT 'cninfo',
+    source_id       TEXT,
+    sec_code        TEXT,
+    sec_name        TEXT,
+    board           TEXT,
+    stage           TEXT,
+    scope           TEXT DEFAULT 'company',
+    org             TEXT,
+    types           TEXT,
+    title           TEXT,
+    ann_date        TEXT,
+    first_date      TEXT,
+    event_no        INTEGER DEFAULT 1,
+    url             TEXT,
+    fetched_at      TEXT,
+    parsed_at       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_fc_code  ON false_claims(sec_code);
+CREATE INDEX IF NOT EXISTS idx_fc_date  ON false_claims(ann_date);
+CREATE INDEX IF NOT EXISTS idx_fc_stage ON false_claims(stage);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fc_src ON false_claims(source, source_id);
+""")
+
+
+MIGRATIONS.append((5, _v5_falseclaim))
+
+
 def migrate(conn, target_version: int) -> list[str]:
     """把 conn 套用到 target_version。返回已应用的迁移说明（用于日志）。"""
     applied = []

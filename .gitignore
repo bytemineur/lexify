@@ -36,3 +36,5 @@ collectors/*/data/
 
 # 本地配置（LLM API Key / 端口 / 后台口令）：模板是 config.example.yaml
 config.yaml
+# 采集器产出（falseclaim 的 out/*.json 是中间产物，入库后就不需要跟进仓库）
+collectors/*/out/

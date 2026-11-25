@@ -273,3 +273,32 @@ CREATE INDEX IF NOT EXISTS idx_pv_day  ON page_views(day);
 CREATE INDEX IF NOT EXISTS idx_pv_path ON page_views(path);
 CREATE INDEX IF NOT EXISTS idx_pv_sid  ON page_views(sid);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_vid ON page_views(vid);
+
+-- ============================================================
+--  证券虚假陈述线索（数据源：巨潮资讯 cninfo 的证监会处罚/立案公告）
+--  一行 = 一条公告事件，不是一家公司；同一家公司会被立案、事先告知、处罚、诉讼
+--  各发一条公告，靠 sec_code + first_date 聚合成一条「案源线索」。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS false_claims (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL DEFAULT 'cninfo',  -- 数据源标识
+    source_id       TEXT,                            -- 公告 id（announcementId），与 source 组成唯一键
+    sec_code        TEXT,                            -- 证券代码
+    sec_name        TEXT,                            -- 证券简称（抓取时点的，可能带 ST/*ST 前缀）
+    board           TEXT,                            -- 沪市主板 / 科创板 / 深市主板 / 创业板 / 北交所
+    stage           TEXT,                            -- investigation / notice / decision / measure / litigation
+    scope           TEXT DEFAULT 'company',          -- company / subsidiary / person
+    org             TEXT,                            -- 处罚机关（证监会 / 地方证监局）
+    types           TEXT,                            -- 违规类型，JSON 数组：虚假记载 / 重大遗漏 / 误导性陈述
+    title           TEXT,                            -- 公告标题
+    ann_date        TEXT,                            -- 公告日期 YYYY-MM-DD
+    first_date      TEXT,                            -- 该公司本轮事件中最早一条的日期（≈揭露日）
+    event_no        INTEGER DEFAULT 1,               -- 这是该公司的第几条事件公告
+    url             TEXT,                            -- 公告原文（cninfo PDF）
+    fetched_at      TEXT,
+    parsed_at       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_fc_code  ON false_claims(sec_code);
+CREATE INDEX IF NOT EXISTS idx_fc_date  ON false_claims(ann_date);
+CREATE INDEX IF NOT EXISTS idx_fc_stage ON false_claims(stage);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fc_src ON false_claims(source, source_id);
