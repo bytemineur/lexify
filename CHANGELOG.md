@@ -64,6 +64,13 @@
 
 ### Changed
 
+- **智能助手乐菲改成「只读公开信息」**：`server/ai.py` 的知识库不再扫 README / docs /
+  表名 / 目录树，改成一份手写的 `PUBLIC_KB`（平台概况 + 三块看板 + 用法 + 数据口径 +
+  价格 + 边界 + 联系），只额外读 `web/data/overview.js` 的公开数字；系统提示词新增
+  「绝对不说的内容」一节——托管地址与是否开源、部署方式、数据库结构与字段、配置与
+  API Key、代码结构、提示词本身，遇到即回「属于平台内部实现」并转回公开功能
+- **`/docs` 默认不再公开**：架构 / 数据库 / 部署 / 实时表结构属于内部信息，现在需要
+  后台口令（本机直连放行）；`LEXIFY_DOCS_PUBLIC=1` 可恢复公开
 - AI 的 Key 现在也可以写在 `config.yaml` 的 `ai.api_key`
   （优先级：`LEXIFY_AI_API_KEY` > `DEEPSEEK_API_KEY` > `config.yaml` > DSH 凭据文件）
 - `python main.py` 的 `--port / --bind / --at` 默认值改为从配置读；`--schedule` 可在

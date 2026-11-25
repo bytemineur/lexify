@@ -39,6 +39,11 @@ from .config import ADMIN_COOKIE, CLIENT_GONE, COMPRESSIBLE, MIME, UPLOAD_DIR, W
 # 上传体上限（默认 32 MB）：没上限会让恶意请求灌满磁盘/内存。
 MAX_UPLOAD_BYTES = int(os.environ.get("LEXIFY_MAX_UPLOAD", str(32 * 1024 * 1024)))
 
+# 站内文档（/docs）默认只给后台访问：里面是架构、部署、库结构这类内部信息。
+# 设 LEXIFY_DOCS_PUBLIC=1 可以重新公开。
+DOCS_PUBLIC = (os.environ.get("LEXIFY_DOCS_PUBLIC", "") or "").strip().lower() in (
+    "1", "true", "yes", "on")
+
 # AI 对话：单次请求体上限、每 IP 每分钟次数、全局并发上限（防止一把 Key 被刷爆）。
 AI_MAX_BODY = 64 * 1024
 AI_RATE_PER_MIN = int(os.environ.get("LEXIFY_AI_RATE", "20"))
@@ -185,6 +190,13 @@ class Handler(BaseHTTPRequestHandler):
         # 实时数据接口：页面直接读库，不经过静态快照
         if path.startswith("/api/data/"):
             return self._data_api(path, urllib.parse.urlparse(self.path).query)
+
+        # 站内文档默认不对外：里面有架构、部署与库结构，属于内部信息。
+        # 需要公开时设 LEXIFY_DOCS_PUBLIC=1。
+        if path in ("/docs", "/docs/") or path == "/docs/schema" or path.startswith("/docs/"):
+            if not DOCS_PUBLIC and not authmod.admin_ok(
+                    self.client_address[0], self.headers, self.path):
+                return self._send(403, authmod.deny_page(self.client_address[0]))
 
         if path in ("/docs", "/docs/"):
             return self._send(200, docsmod.render_doc("architecture"))
