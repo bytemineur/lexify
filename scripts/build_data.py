@@ -321,6 +321,71 @@ def build_falseclaim(db_path):
     }
 
 
+def build_labor(db_path):
+    """劳动争议：一行是一份招股说明书里的社保公积金欠缴披露。
+
+    snippet 是命中的原句，paid_ratio 是同期缴纳比例（有的公司只写「99% 以上」没写人数，
+    这类 headcount 为 0、ratio 为 0，前端按「未披露比例」处理）。
+    """
+    conn = connect(db_path)
+    rows = []
+    for r in conn.execute(
+            "SELECT id, sec_code, sec_name, board, doc_type, title, ann_date, url,"
+            " page_no, unpaid_kind, snippet, snippets, promise, makegood_amount,"
+            " headcount, paid_count, paid_ratio, severity, pages, event_no"
+            " FROM labor_claims ORDER BY ann_date DESC, sec_code, event_no"):
+        try:
+            snippets = json.loads(r["snippets"]) if r["snippets"] else []
+        except (TypeError, ValueError):
+            snippets = []
+        rows.append({
+            "id": r["id"],
+            "code": r["sec_code"] or "",
+            "name": r["sec_name"] or "",
+            "board": r["board"] or "",
+            "docType": r["doc_type"] or "招股说明书",
+            "title": r["title"] or "",
+            "date": r["ann_date"] or "",
+            "url": r["url"] or "",
+            "page": r["page_no"] or 0,
+            "kind": r["unpaid_kind"] or "",
+            "snippet": r["snippet"] or "",
+            "snippets": snippets,
+            "promise": r["promise"] or 0,
+            "amount": r["makegood_amount"] or 0,
+            "head": r["headcount"] or 0,
+            "paid": r["paid_count"] or 0,
+            "ratio": r["paid_ratio"] or 0,
+            "severity": r["severity"] or "mid",
+            "pages": r["pages"] or 0,
+            "no": r["event_no"] or 1,
+        })
+    conn.close()
+
+    companies = {x["code"] for x in rows if x["code"]}
+    sev = {}
+    for x in rows:
+        sev[x["severity"]] = sev.get(x["severity"], 0) + 1
+    recent = max([x["date"] for x in rows if x["date"]], default="")
+    return {
+        "key": "labor",
+        "name": "劳动争议",
+        "en": "Labor & Social Insurance",
+        "tagline": "从 IPO 招股说明书里翻出「未缴 / 未足额缴纳社保公积金」的披露，"
+                   "按公司攒成线索：谁在报告期内欠缴、欠多少、实际控制人有没有承诺兜底。",
+        "rows": rows,
+        "meta": {
+            "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "total": len(rows),
+            "companies": len(companies),
+            "high": sev.get("high", 0),
+            "mid": sev.get("mid", 0),
+            "low": sev.get("low", 0),
+            "lastDate": recent,
+        },
+    }
+
+
 def write_board(board):
     board.pop("_provs", None)
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -429,6 +494,7 @@ def main():
         "hearing": build_hearing(db_path),
         "bounty": build_bounty(db_path),
         "falseclaim": build_falseclaim(db_path),
+        "labor": build_labor(db_path),
     }
     all_provs = set()
     for b in boards.values():

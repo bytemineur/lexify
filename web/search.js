@@ -14,7 +14,8 @@
     { key: "tender", name: "招标雷达", desc: "法律服务类采购、预算与投标截止", tag: "招标" },
     { key: "hearing", name: "开庭公告", desc: "被告是企业、商事案由、临期开庭", tag: "开庭" },
     { key: "bounty", name: "执行悬赏", desc: "被执行人、执行标的、悬赏比例", tag: "悬赏" },
-    { key: "falseclaim", name: "证券虚假陈述", desc: "证监会立案、处罚决定、投资者索赔线索", tag: "虚假陈述" }
+    { key: "falseclaim", name: "证券虚假陈述", desc: "证监会立案、处罚决定、投资者索赔线索", tag: "虚假陈述" },
+    { key: "labor", name: "劳动争议", desc: "招股书里的社保公积金欠缴披露", tag: "劳动争议" }
   ];
 
   var box = null;

@@ -40,7 +40,7 @@ COL_BOUNTY = os.path.join(ROOT, "collectors", "bounty")
 COL_HEARING = os.path.join(ROOT, "collectors", "hearing")
 
 
-TABLES = ("tenders", "sources", "hearings", "notices", "false_claims")
+TABLES = ("tenders", "sources", "hearings", "notices", "false_claims", "labor_claims")
 
 # 每张表允许写入的列（多了忽略，少了留空）
 COLS = {
@@ -65,6 +65,10 @@ COLS = {
     "false_claims": ["source", "source_id", "sec_code", "sec_name", "board", "stage",
                      "scope", "org", "types", "title", "ann_date", "first_date",
                      "event_no", "url", "fetched_at", "parsed_at"],
+    "labor_claims": ["source", "source_id", "sec_code", "sec_name", "board", "doc_type",
+                      "title", "ann_date", "url", "page_no", "unpaid_kind", "snippet",
+                      "snippets", "promise", "makegood_amount", "headcount", "paid_count",
+                      "paid_ratio", "severity", "pages", "event_no", "fetched_at", "parsed_at"],
 }
 
 # 源库里的表名 → (目标表, 类型)
@@ -74,7 +78,7 @@ TABLE_MAP = {"tenders": ("tenders", "tender"),
              "notices": ("notices", "bounty")}
 
 KIND_TO_TABLE = {"tender": "tenders", "hearing": "hearings", "bounty": "notices",
-                 "falseclaim": "false_claims"}
+                 "falseclaim": "false_claims", "labor": "labor_claims"}
 
 # 文件导入时靠字段名认类型，认不出来才要求 --kind
 KIND_SIGNATURE = {
@@ -82,6 +86,7 @@ KIND_SIGNATURE = {
     "hearing": {"hearing_date", "hearing_at", "defendant", "plaintiff", "cause", "case_no"},
     "bounty": {"debtor", "reward_ratio", "subject_amount", "reward_est", "reward_cap"},
     "falseclaim": {"sec_code", "sec_name", "stage", "ann_date", "types", "org"},
+    "labor": {"sec_code", "sec_name", "unpaid_kind", "ann_date", "headcount", "paid_ratio"},
 }
 
 
@@ -162,7 +167,7 @@ def init_db(force=False):
     ensure_schema()
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def ensure_schema(path=None, quiet=True):
@@ -352,7 +357,7 @@ def do_add(path, kind="", source="", rebuild=True):
             if not kind:
                 raise SystemExit(
                     "认不出这是什么数据（字段既不像招标，也不像开庭或悬赏）。\n"
-                    "用 --kind tender|hearing|bounty 指定一下。")
+                    "用 --kind tender|hearing|bounty|falseclaim|labor 指定一下。")
             table = KIND_TO_TABLE[kind]
         if source:
             for r in rows:
@@ -511,7 +516,7 @@ def main():
     ap.add_argument("cmd", choices=["init", "add", "crawl", "build", "push", "update", "stats", "failures"])
     ap.add_argument("file", nargs="?", help="add / update 时的数据文件")
     ap.add_argument("--kind", default="",
-                    choices=["", "tender", "hearing", "bounty", "falseclaim"])
+                    choices=["", "tender", "hearing", "bounty", "falseclaim", "labor"])
     ap.add_argument("--source", default="", help="补 source 字段（文件导入用）")
     ap.add_argument("--no-build", action="store_true", help="不重新导出")
     ap.add_argument("--force", action="store_true", help="init 时备份并重建（清空数据）")

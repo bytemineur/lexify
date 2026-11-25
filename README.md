@@ -25,6 +25,7 @@
 | 开庭公告 `hearing.html` | 1,224 条 | 哪个企业刚收到传票、还没委托律师 | 开庭时间、被告类型、案由、涉案金额、法院 |
 | 执行悬赏 `bounty.html` | 695 条 | 哪个被执行人值得提供线索 | 执行标的、悬赏比例、预估赏金、有效期 |
 | 证券虚假陈述 `falseclaim.html` | 1,331 条事件 / 624 家公司 | 哪家上市公司刚被证监会立案、处罚，可以替投资者索赔 | 处理阶段、处罚机关、公告日、首个事件日、原文链接 |
+| 劳动争议 `labor.html` | 118 条披露 / 118 家公司 | 哪家拟上市公司在报告期内没给员工缴（足额缴）社保公积金，可做劳动争议案源 | 欠缴程度、上市板块、社保 / 公积金、兜底承诺、披露日期 |
 
 > 上表是当前库的规模，**每天采集后会变**。首页的汇总数字同理，以页面实际显示为准。
 > 招标库内 1,858 条，页面 1,398 条——差的是同一公告的转载与关联条目（`is_primary` 去重后才是页面数）。
@@ -54,7 +55,7 @@
 看起来有几千条、库里可能一条没有。现在看板页头标「**实时 · 数据库**」；
 只有后端没起或 `file://` 打开时才退回快照，并明确标「**离线快照**」——两种标注措辞不同，不混淆。
 
-**页面清单**（5 个数据页 + 4 个子页）：
+**页面清单**（6 个数据页 + 4 个子页）：
 
 | 页面 | 定位 |
 |---|---|
@@ -63,6 +64,7 @@
 | `hearing.html` | 开庭公告 |
 | `bounty.html` | 执行悬赏 |
 | `falseclaim.html` | 证券虚假陈述：证监会立案 / 事先告知 / 处罚决定的公告链条，投资者索赔线索 |
+| `labor.html` | 劳动争议：招股说明书里的社保公积金欠缴披露，劳动争议案源 |
 | `pricing.html` | 定价：公测期 0 元，写清收费口径 |
 | `about.html` | 关于：产品是什么、给谁用、边界 |
 | `terms.html` | 用户协议（页脚入口，口径与边界） |
@@ -106,7 +108,7 @@ lexify/
 │  ├─ fonts/                # 自托管字体，不引 Google Fonts
 │  ├─ favicon-32/64.png
 │  └─ data/                 # 由 scripts/manage.py 从库里导出，不要手改
-│     ├─ tender.js  hearing.js  bounty.js  falseclaim.js
+│     ├─ tender.js  hearing.js  bounty.js  falseclaim.js  labor.js
 │     └─ overview.js
 ├─ docs/                    # 说明文档 + 设计资源（docs/assets/）
 ├─ data/                    # schema.sql 进 git；lexify.db 与采集账本不进
@@ -116,6 +118,7 @@ lexify/
 │  ├─ bounty/               # 执行悬赏 → notices
 │  ├─ hearing/              # 开庭公告 → hearings
 │  ├─ falseclaim/           # 证券虚假陈述（巨潮资讯证监会处罚公告）→ false_claims
+│  ├─ labor/                # 劳动争议（招股说明书社保公积金披露）→ labor_claims
 │  ├─ nationwide/           # 按法院遍历公告网（华南 + 江浙沪优先批次）
 │  └─ courtbook/            # 法院通讯录 → courts
 ├─ scripts/
@@ -210,6 +213,8 @@ python scripts/manage.py crawl            # 三块一起采 → 去重入库 →
 python scripts/manage.py crawl --only tender --pages 5   # 只采招标，并覆盖各站点的翻页数
 python -m collectors.falseclaim           # 证券虚假陈述：巨潮资讯全量拉一遍（约 70 秒）→ 写 out/*.json
 python scripts/manage.py add collectors/falseclaim/out/falseclaim_YYYYMMDD.json --kind falseclaim
+python -m collectors.labor                # 劳动争议：拉招股书 + 抽社保段落（150 份约 25 分钟）
+python scripts/manage.py add collectors/labor/out/labor_YYYYMMDD.json --kind labor
 python scripts/manage.py stats            # 看库里有什么
 python scripts/manage.py failures         # 看采集/导入失败记录
 ```

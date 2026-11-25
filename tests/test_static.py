@@ -25,6 +25,7 @@ BOARDS = [
     ("hearing.html", "hearing", "开庭公告"),
     ("bounty.html", "bounty", "执行悬赏"),
     ("falseclaim.html", "falseclaim", "证券虚假陈述"),
+    ("labor.html", "labor", "劳动争议"),
 ]
 
 # 页面必须挂载的节点，引擎按 id 取

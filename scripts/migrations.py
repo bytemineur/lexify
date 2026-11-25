@@ -157,6 +157,48 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_fc_src ON false_claims(source, source_id);
 MIGRATIONS.append((5, _v5_falseclaim))
 
 
+def _v6_labor(conn):
+    """v6：新增劳动争议线索表 labor_claims（第五块看板）。
+
+    数据来自 IPO 招股说明书里披露的社保/公积金欠缴段落。
+    """
+    conn.executescript("""
+CREATE TABLE IF NOT EXISTS labor_claims (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL DEFAULT 'cninfo',
+    source_id       TEXT,
+    sec_code        TEXT,
+    sec_name        TEXT,
+    board           TEXT,
+    doc_type        TEXT,
+    title           TEXT,
+    ann_date        TEXT,
+    url             TEXT,
+    page_no         INTEGER DEFAULT 0,
+    unpaid_kind     TEXT,
+    snippet         TEXT,
+    snippets        TEXT,
+    promise         INTEGER DEFAULT 0,
+    makegood_amount REAL DEFAULT 0,
+    headcount       INTEGER DEFAULT 0,
+    paid_count      INTEGER DEFAULT 0,
+    paid_ratio      REAL DEFAULT 0,
+    severity        TEXT,
+    pages           INTEGER DEFAULT 0,
+    event_no        INTEGER DEFAULT 1,
+    fetched_at      TEXT,
+    parsed_at       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_lc_code ON labor_claims(sec_code);
+CREATE INDEX IF NOT EXISTS idx_lc_date ON labor_claims(ann_date);
+CREATE INDEX IF NOT EXISTS idx_lc_sev ON labor_claims(severity);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lc_src ON labor_claims(source, source_id);
+""")
+
+
+MIGRATIONS.append((6, _v6_labor))
+
+
 def migrate(conn, target_version: int) -> list[str]:
     """把 conn 套用到 target_version。返回已应用的迁移说明（用于日志）。"""
     applied = []

@@ -711,3 +711,12 @@ table.list tbody tr { cursor: pointer; }
 td.empty { padding: 40px 16px; text-align: center; color: var(--text-3); }
 /* 「开庭公告」「执行悬赏」后面不带斜杠（斜杠是首页顶栏的分隔符） */
 html[data-mlp] .btabs > a::after { content: none; }
+
+/* 详情弹窗里的原文摘录：可能很长，限高可滚，避免把弹窗撑开 */
+.modal-b .m-quote {
+  max-height: 220px; overflow-y: auto; padding: 10px 12px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  font-size: 13px; line-height: 1.75; color: var(--text-2);
+}
+.modal-b .m-quote p { margin: 0 0 8px; }
+.modal-b .m-quote p:last-child { margin-bottom: 0; }

@@ -27,7 +27,7 @@ from .config import DB
 
 # 三个看板 → 库里的表。导出口径与 build_data.py 保持一致，避免两边对不上。
 BOARD_TABLES = {"tender": "tenders", "hearing": "hearings", "bounty": "notices",
-                "falseclaim": "false_claims"}
+                "falseclaim": "false_claims", "labor": "labor_claims"}
 
 # 只取「主记录、非结果公告」的口径（与 build_data.py 的导出一致）
 _PRIMARY = "(is_primary IS NOT 0 OR cluster_id IS NULL)"
@@ -147,6 +147,8 @@ def board(key):
             return _board_hearing(conn, rows)
         if key == "falseclaim":
             return _board_falseclaim(conn, rows)
+        if key == "labor":
+            return _board_labor(conn, rows)
         return _board_bounty(conn, rows)
     finally:
         conn.close()
@@ -159,10 +161,12 @@ def is_primary_ok(cols):
 def _empty_board(key):
     base = {"key": key, "rows": [], "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M")}
     return dict(base, name={"tender": "招标雷达", "hearing": "开庭公告",
-                            "bounty": "执行悬赏", "falseclaim": "证券虚假陈述"}.get(key, key),
+                            "bounty": "执行悬赏", "falseclaim": "证券虚假陈述",
+                            "labor": "劳动争议"}.get(key, key),
                 en={"tender": "Tender Radar", "hearing": "Hearing Docket",
                     "bounty": "Bounty Notice",
-                    "falseclaim": "Misrepresentation Claims"}.get(key, ""),
+                    "falseclaim": "Misrepresentation Claims",
+                    "labor": "Labor & Social Insurance"}.get(key, ""),
                 tagline="", meta={"total": 0, "generatedAt": base["generatedAt"]})
 
 
@@ -300,6 +304,54 @@ def _board_bounty(conn, rows):
             "rewardSum": reward_sum,
             "provinces": len({x["prov"] for x in out if x["prov"]}),
             "organizations": len({x["court"] for x in out if x["court"]}),
+        },
+    }
+
+
+def _board_labor(conn, rows):
+    """劳动争议：一行 = 一份招股说明书里的社保公积金欠缴披露。"""
+    out = []
+    for r in rows:
+        try:
+            snippets = json.loads(r["snippets"]) if r["snippets"] else []
+        except (TypeError, ValueError, KeyError):
+            snippets = []
+        out.append({
+            "id": r["id"],
+            "code": r["sec_code"] or "",
+            "name": r["sec_name"] or "",
+            "board": r["board"] or "",
+            "docType": r["doc_type"] or "招股说明书",
+            "title": r["title"] or "",
+            "date": (r["ann_date"] or "")[:10],
+            "url": r["url"] or "",
+            "page": r["page_no"] or 0,
+            "kind": r["unpaid_kind"] or "",
+            "snippet": r["snippet"] or "",
+            "snippets": snippets,
+            "promise": r["promise"] or 0,
+            "amount": r["makegood_amount"] or 0,
+            "head": r["headcount"] or 0,
+            "paid": r["paid_count"] or 0,
+            "ratio": r["paid_ratio"] or 0,
+            "severity": r["severity"] or "mid",
+            "pages": r["pages"] or 0,
+            "no": r["event_no"] or 1,
+        })
+    sev = {}
+    for x in out:
+        sev[x["severity"]] = sev.get(x["severity"], 0) + 1
+    return {
+        "key": "labor", "name": "劳动争议", "en": "Labor & Social Insurance",
+        "tagline": "招股说明书里披露的社保公积金欠缴情况，按公司攒成线索。",
+        "rows": out,
+        "meta": {
+            "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "total": len(out),
+            "companies": len({x["code"] for x in out if x["code"]}),
+            "high": sev.get("high", 0),
+            "mid": sev.get("mid", 0),
+            "low": sev.get("low", 0),
         },
     }
 
