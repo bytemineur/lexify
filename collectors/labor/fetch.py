@@ -29,7 +29,38 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
-PYLIBS = os.path.join(ROOT, "..", ".tmp", "pylibs")   # 本地 pypdf（没装进 requirements）
+PYLIBS = os.path.join(ROOT, "..", ".tmp", "pylibs")   # 本地 pypdf / pymupdf（没装进 requirements）
+
+
+def _import_pdf_libs():
+    """把 PDF 库找出来：先试系统环境，再试 .tmp/pylibs（两者都不进 requirements）。"""
+    global _HAS_PYMUPDF, PdfReader, pymupdf
+    try:
+        import pymupdf as _pm
+    except ImportError:
+        if os.path.isdir(PYLIBS):
+            sys.path.insert(0, PYLIBS)
+        try:
+            import pymupdf as _pm
+        except ImportError:
+            _pm = None
+    if _pm is not None:
+        pymupdf = _pm
+        _HAS_PYMUPDF = True
+
+    try:
+        from pypdf import PdfReader as _Reader
+    except ImportError:
+        if os.path.isdir(PYLIBS) and PYLIBS not in sys.path:
+            sys.path.insert(0, PYLIBS)
+        from pypdf import PdfReader as _Reader
+    PdfReader = _Reader
+
+
+_HAS_PYMUPDF = False
+PdfReader = None
+pymupdf = None
+_import_pdf_libs()
 
 API = "http://www.cninfo.com.cn/new/hisAnnouncement/query"
 PDF_HOST = "http://static.cninfo.com.cn/"
@@ -171,23 +202,31 @@ def _first_int(flat, pattern):
         return 0
 
 
+def _open_pdf(raw):
+    """把 PDF 字节打开成（页数, 取第 N 页文本的函数）。
+
+    优先 pymupdf：同样一份 400 页招股书，取文大约快 5~10 倍（纯 C 实现）。
+    没装 pymupdf 时退回 pypdf（纯 Python，慢但零依赖）。
+    """
+    if _HAS_PYMUPDF:
+        doc = pymupdf.open(stream=raw, filetype="pdf")
+        return len(doc), (lambda i: doc[i].get_text("text"))
+
+    reader = PdfReader(io.BytesIO(raw))
+    return len(reader.pages), (lambda i: reader.pages[i].extract_text() or "")
+
+
 def scan_document(item, max_pages=520):
-    """下载 + 取文 + 定位社保段落。返回 (row 或 None)。"""
+    """下载 + 取文 + 定位社保段落。返回 row 或 None。"""
     if not item.get("url"):
         return None
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        sys.path.insert(0, PYLIBS)
-        from pypdf import PdfReader
 
     try:
         req = urllib.request.Request(
             item["url"], headers={"User-Agent": UA,
                                   "Referer": "http://www.cninfo.com.cn/"})
         raw = urllib.request.urlopen(req, timeout=180, context=CTX).read()
-        reader = PdfReader(io.BytesIO(raw))
-        total_pages = len(reader.pages)
+        total_pages, page_text = _open_pdf(raw)
         limit = min(total_pages, max_pages)
     except Exception as e:
         return {"_error": "%s: %s" % (item.get("sec_code"), e)}
@@ -198,7 +237,7 @@ def scan_document(item, max_pages=520):
     headcount = paid = 0
     for i in range(limit):
         try:
-            text = reader.pages[i].extract_text() or ""
+            text = page_text(i) or ""
         except Exception:
             continue
         if not text:
@@ -210,8 +249,6 @@ def scan_document(item, max_pages=520):
             headcount = _first_int(spaced, r"员工总\s*(?:人数|数)\s*（?人）?\s*([\d,]+)")
         if not paid:
             paid = _first_int(spaced, r"(?:社会保险|社保)缴纳人\s*(?:数|人数)\s*（?人）?\s*([\d,]+)")
-        if "承诺" in text:
-            promise_any = 1
         for sent in _sentences(text):
             if not PAID_RE.search(sent):
                 continue
@@ -258,7 +295,7 @@ def scan_document(item, max_pages=520):
         "unpaid_kind": "+".join(k for k in ("社保", "公积金") if k in kinds),
         "snippet": picked[0][:300],
         "snippets": json.dumps(picked, ensure_ascii=False),
-        "promise": promise_any,
+        "promise": 1 if any(k in s for s in picked for k in ("承诺", "补偿", "承担", "兜底")) else 0,
         "makegood_amount": amount or 0,
         "headcount": headcount or 0,
         "paid_count": paid or 0,
