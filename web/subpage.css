@@ -187,7 +187,7 @@ html[data-mlp] .pstat span { font-size: 13px; color: var(--blue-56); }
 /* æ­£æ–‡ä¸é¡µè„šä¹‹é—´ç•™ç™½ */
 html[data-mlp] .sub-page .foot { margin-top: 72px; }
 
-/* ©¤©¤ Õ­ÆÁ£º¶¥À¸ÕÛ³ÉÁ½ĞĞ£¬Ò³Ç©²»Òª±»²ØÆğÀ´ ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤ */
+/* çª„å±ï¼šé¡¶æ æŠ˜æˆä¸¤è¡Œï¼Œé¡µç­¾ä¸è¦è¢«è—èµ·æ¥ */
 @media (max-width: 900px) {
   html[data-mlp] .sub-page .topbar {
     height: auto; flex-wrap: wrap; align-items: center;
