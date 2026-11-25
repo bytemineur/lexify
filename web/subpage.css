@@ -210,3 +210,12 @@ html[data-mlp] .sub-body .num {
   font-weight: 600; color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── 正文居中：页头与正文共用同一条 820px 中轴 ───────────── */
+html[data-mlp] .sub-page .sub-head > .wrap,
+html[data-mlp] .sub-page main > .wrap {
+  width: min(820px, 100% - 80px);
+  margin-left: auto;
+  margin-right: auto;
+}
+html[data-mlp] .sub-page .sub-body { max-width: none; }
