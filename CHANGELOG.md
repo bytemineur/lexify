@@ -45,6 +45,10 @@
   里的 clone 地址换成占位符
 - **「文档」一级菜单撤掉**：用户协议 / 隐私政策不再占导航，入口仍在页脚的链接里；
   两个页面本身没删，`/docs` 接口文档照旧
+- **首页动效默认固定为星场**：`web/field-picker.js` 不再每次刷新轮换，默认只加载
+  `field-universe.js`（景深视差 + 指针引力），其余四种（涟漪 / 帘子 / 切片 / 流场）文件保留，
+  可用 `?fx=ripple|curtain|slice|flow|universe` 临时切换、`?fx=rotate` 恢复轮换；
+  `prefers-reduced-motion` 仍回落到静态 `field.svg`
 - **顶栏放大镜补全**：`web/search.js` 提供跨看板检索浮层（点图标或 ⌘K / Ctrl+K，
   ↑↓ 选、回车跳对应看板），看板页与子页统一挂载；首页原本由 `app.js` 命令面板承担
 - 后台「系统与配置」页签：AI 是否启用与 Key 来源、配置文件是否生效、库大小与 schema 版本、
