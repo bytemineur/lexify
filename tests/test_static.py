@@ -339,6 +339,32 @@ def check_docs():
         ok("%s 子进程带 UTF-8 环境" % f, "child_env" in s)
 
 
+def check_chrome():
+    """页首 / 页脚是每个页面都要有的一套外壳：logo、导航、放大镜、页脚链接与版权行。
+
+    这套东西以前是一页一抄，改一处就漏三处（看板页没有放大镜、三页干脆没有页脚），
+    所以直接按「八页一致」来断言，而不是抽查。
+    """
+    print("\n[5] 页首页脚")
+    pages = ["index.html", "tender.html", "hearing.html", "bounty.html",
+             "pricing.html", "about.html", "terms.html", "privacy.html"]
+    for page in pages:
+        s = read(os.path.join(WEB, page))
+        nav = re.search(r'<nav class="nav"[^>]*>([\s\S]*?)</nav>', s)
+        nav_txt = nav.group(1) if nav else ""
+        missing = [x for x in ("产品", "定价", "关于") if (">%s<" % x) not in nav_txt]
+        ok("%s 一级导航是 产品/定价/关于" % page, not missing, ",".join(missing))
+        ok("%s 不再有「文档」一级菜单" % page, ">文档<" not in nav_txt)
+        ok("%s 页首有检索放大镜" % page, 'id="btnSearch"' in s)
+        ok("%s 加载了检索脚本" % page, "search.js" in s or "app.js" in s)
+        ok("%s 有统一页脚" % page,
+           'class="foot-cols"' in s and "<h4>政策协议</h4>" in s)
+        ok("%s 页脚保留用户协议与隐私政策" % page,
+           'href="terms.html"' in s and 'href="privacy.html"' in s)
+        ok("%s 版权行是 2024 - 2026" % page,
+           "Copyright © 2024 - 2026 Lexify. All rights reserved." in s)
+
+
 def main():
     html_files = [os.path.join(WEB, p) for p in
                   ("index.html", "tender.html", "hearing.html", "bounty.html")]
@@ -352,6 +378,7 @@ def main():
     check_data()
     check_shell(html_files)
     check_detail()
+    check_chrome()
     check_docs()
 
     print("\n合计 %d 项通过，%d 项失败，%d 项提醒" % (len(passes), len(fails), len(warns)))

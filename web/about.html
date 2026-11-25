@@ -33,16 +33,16 @@
       </div>
     </div>
     <a href="pricing.html">定价</a>
-    <div class="nav-drop">
-      <a href="terms.html" aria-haspopup="true">文档</a>
-      <div class="nav-drop-menu" role="menu">
-        <a role="menuitem" href="terms.html"><b>用户协议</b><em>Terms</em></a>
-        <a role="menuitem" href="privacy.html"><b>隐私政策</b><em>Privacy</em></a>
-        <a role="menuitem" href="/docs"><b>API 文档</b><em>API Reference</em></a>
-      </div>
-    </div>
     <a href="about.html" class="on">关于</a>
   </nav>
+
+  <div class="topbar-right">
+    <button class="icon-btn" id="btnSearch" title="全站检索（⌘K）" aria-label="检索">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="11" cy="11" r="6.4"/><path d="m16 16 4.2 4.2"/>
+      </svg>
+    </button>
+  </div>
 </header>
 
 <main>
@@ -111,11 +111,28 @@
 </main>
 
 <footer class="foot">
-  <div class="wrap foot-in">
-    <a class="foot-brand" href="index.html"><strong>lexify</strong> 法律数据洞察平台</a>
-    <div class="foot-legal">
-      <p class="foot-note">© 2026 lexify. All rights reserved.</p>
-      <p class="foot-links"><a href="terms.html">用户协议</a><a href="privacy.html">隐私政策</a></p>
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-about">
+        <a class="foot-brand" href="index.html"><strong>lexify</strong><span>法律数据洞察平台</span></a>
+        <p class="foot-desc">把公开发布的招标采购、法院开庭与执行悬赏公告整理成可检索的看板。</p>
+      </div>
+      <nav class="foot-cols" aria-label="页脚导航">
+        <div class="foot-col">
+          <h4>产品</h4>
+          <a href="tender.html">招标雷达</a>
+          <a href="hearing.html">开庭公告</a>
+          <a href="bounty.html">执行悬赏</a>
+        </div>
+        <div class="foot-col">
+          <h4>政策协议</h4>
+          <a href="terms.html">用户协议</a>
+          <a href="privacy.html">隐私政策</a>
+        </div>
+      </nav>
+    </div>
+    <div class="foot-bottom">
+      <p class="foot-note">Copyright © 2024 - 2026 Lexify. All rights reserved.</p>
       <a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">粤ICP备2026168850号</a>
     </div>
   </div>
@@ -123,6 +140,7 @@
 
 <script src="ai-chat.js"></script>
 <script src="nav-dropdown.js"></script>
+<script src="search.js"></script>
 <script src="track.js"></script>
 </body>
 </html>
