@@ -7,6 +7,34 @@
 
 ### Added
 
+- **`config.yaml`：一个文件放全部配置**。`server`（bind / port / update_at / schedule）、
+  `admin`（token / open）、`db.path`、`ai`（api_key / base_url / model / thinking / timeout）、
+  `analytics`（enabled / retention_days / respect_dnt / hash_salt）、`crawl.publish`。
+  模板 `config.example.yaml` 入库，`config.yaml` 本身进 `.gitignore`（里面会有 Key）。
+  优先级：`LEXIFY_*` 环境变量 > `config.yaml` > 代码默认值；没有配置文件时行为与以前完全一致
+- `server/config.py` 内置**纯标准库**的极简 YAML 解析（两级缩进 map、`- list`、行内/行尾注释、
+  引号里的 `#` 不当注释）。不装 pyyaml 也能读配置，站点「零依赖能跑」的约定不变
+- **访问分析后台**：`/admin` 改成左侧导航 + 四个页签（概览 / 访问分析 / 数据与采集 / 系统与配置），
+  全服务端渲染，内联 SVG 折线图，不引任何前端库。概览页有今日 PV/UV、实时在线、趋势图、
+  页面与来源排名、最近访问；访问分析页支持 7 / 30 / 90 天切换，看来源分类（直接 / 搜索 /
+  外链 / 站内）、来源域名、页面排行、搜索词、时段分布、设备与浏览器
+- `server/analytics.py` + `web/track.js`：自建轻量 PV/UV 统计。`page_views` 表，
+  **IP 只存 `sha256(盐+IP)` 前 16 位**，不留原文；机器人 UA 标 `is_bot=1` 不进口径；
+  尊重 DNT；`sendBeacon` 补停留时长；按 `retention_days` 自动清理
+- 新接口 `POST /api/track`（4 KB 体积上限、同源校验、每 IP 每分钟限流，默认 120）
+- schema 升到 **v4**（`page_views` + 索引），`scripts/migrations.py` 里是 `_v4_analytics`
+- `tests/test_config.py`（28 项）、`tests/test_analytics.py`（49 项）
+- 启动日志新增一行 `配置：<实际读到的 config.yaml 路径>`
+- **用户协议 / 隐私政策页**：`web/terms.html`、`web/privacy.html` + 共用的 `web/subpage.css`，
+  沿用站点字体与色板；首页与子页的页脚加了「用户协议 / 隐私政策」入口
+  （招标 / 开庭 / 悬赏三页本来就没有页脚，未改动）
+- **定价 / 关于页**：`web/pricing.html`（0 元方案卡 + 收费计划 + 不做的三件事）、
+  `web/about.html`（是什么 / 给谁用 / 三块数据 / 怎么做的 / 边界 / 联系），同样复用前台皮肤
+- **导航重排**：顶栏改成 看板（下拉：招标雷达 / 开庭公告 / 执行悬赏）+ 定价 +
+  文档（下拉：用户协议 / 隐私政策 / API 文档）+ 关于，五张页面共用同一份导航标记；
+  桌面端改三栏网格 —— 品牌贴左、导航**居中**、右侧工具贴右，顶栏仍 sticky 固定在顶部
+- 后台「系统与配置」页签：AI 是否启用与 Key 来源、配置文件是否生效、库大小与 schema 版本、
+  定时任务真实状态、以及改 Key 的两种方法
 - **法院通讯录 `courts` 表 + `collectors/courtbook` 采集器**：抓 tool.110.com
   「全国法院地址电话」，落地法院名称 / 层级 / 省 / 市 / 地址 / 邮编 / 电话（含昼夜间号码拆分），
   共 **3,067 家**，电话与地址各 100% 覆盖。schema 升到 v3，配套 `court_coverage`
@@ -15,6 +43,39 @@
   `--dry` 只抓不写库
 - `scripts/fix_court_levels.py`：只按名字重算层级，不用重新爬网络
 - `scripts/court_match.py`：通讯录 ↔ 法院清单的差异报告
+
+### Changed
+
+- AI 的 Key 现在也可以写在 `config.yaml` 的 `ai.api_key`
+  （优先级：`LEXIFY_AI_API_KEY` > `DEEPSEEK_API_KEY` > `config.yaml` > DSH 凭据文件）
+- `python main.py` 的 `--port / --bind / --at` 默认值改为从配置读；`--schedule` 可在
+  `server.schedule: false` 时强制开启定时
+- 后台 `/admin/api/stats` 多返回一个 `analytics` 块（与页面同源，脚本可直接取数）
+- 访问统计的「占比」列改成占区间总 PV 的真实百分比（条形宽度另按最高值归一）
+- **后台与法律页复用前台的皮肤，不再自带一套样式**：页面挂 `html[data-mlp]` 并引
+  `style.css` + `millennium.css`，只补 `web/admin.css`、`web/subpage.css` 两个布局件；
+  颜色/字号/发丝线/方角全部沿用前台（电光蓝 `#1434CB`），原来那套深绿侧栏、
+  圆角卡片、自造令牌全部删掉。后台从「左侧栏」改成和前台同构的顶栏 + `.bhead`
+  + `.kpis` + 发丝线分区
+- 用户协议 / 隐私政策正文宽度、目录、小节分隔线统一到前台口径（16px/1.9 正文、
+  22px 小节标题、每节一条 1px 线）
+- **三个看板页的胶囊页签撤了**：招标雷达 / 开庭公告 / 执行悬赏 统一收进「看板」下拉，
+  七个页面现在共用同一份导航标记；当前所在的那块在下拉里标 `aria-current="page"`
+  （左侧一道蓝条）
+- `web/nav-dropdown.js` 重写：原来匹配的 `.nav-drp` 早就不存在（等于空转），现在盯 `.nav-drop`，
+  触屏设备点「看板 / 文档」第一下只展开菜单、第二下收起，点空白或 Esc 也收起；
+  鼠标环境仍然只靠 CSS `:hover`，脚本不插手
+
+### 移除
+
+- **快捷检索页 `radar.html` 删掉**（连 `radar.js` / `radar.css`）：它做的是服务端筛选 + 分页 +
+  CSV，功能与招标看板重叠，新导航里也没有它的位置。服务端 `GET /api/data/tenders?q=&…`
+  接口保留，脚本仍可直接调用
+
+### 修复
+
+- 环境变量覆盖数值型配置时会变成字符串（`LEXIFY_PORT=9000` 得到 `"9000"`），
+  现在按默认值的类型自动转型
 
 ### 采集要点（都是踩出来的，别改回去）
 

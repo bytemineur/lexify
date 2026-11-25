@@ -24,11 +24,26 @@
     <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
   </a>
 
-  <nav class="btabs" aria-label="看板切换">
-      <a href="tender.html" data-b="tender" class="on"><i class="bdot"></i>招标雷达</a>
-      <a href="hearing.html" data-b="hearing"><i class="bdot"></i>开庭公告</a>
-      <a href="bounty.html" data-b="bounty"><i class="bdot"></i>执行悬赏</a>
-    </nav>
+  <nav class="nav" id="nav">
+    <div class="nav-drop">
+      <a href="tender.html" class="on" aria-haspopup="true">产品</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="tender.html" aria-current="page"><b>招标雷达</b><em>Tender Radar</em></a>
+        <a role="menuitem" href="hearing.html"><b>开庭公告</b><em>Hearing Docket</em></a>
+        <a role="menuitem" href="bounty.html"><b>执行悬赏</b><em>Bounty Notice</em></a>
+      </div>
+    </div>
+    <a href="pricing.html">定价</a>
+    <div class="nav-drop">
+      <a href="terms.html" aria-haspopup="true">文档</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="terms.html"><b>用户协议</b><em>Terms</em></a>
+        <a role="menuitem" href="privacy.html"><b>隐私政策</b><em>Privacy</em></a>
+        <a role="menuitem" href="/docs"><b>API 文档</b><em>API Reference</em></a>
+      </div>
+    </div>
+    <a href="about.html">关于</a>
+  </nav>
 
   <div class="topbar-right">
       </div>
@@ -338,5 +353,6 @@
 </script>
 <script src="ai-chat.js"></script>
 <script src="nav-dropdown.js"></script>
+<script src="track.js"></script>
 </body>
 </html>

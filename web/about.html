@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mlp>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>关于 · lexify</title>
+<meta name="description" content="lexify 是什么、给谁用、三块数据从哪来、怎么做的，以及它的边界 —— 一个把公开法律公告整理成可检索看板的工具。">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="subpage.css">
+<link rel="stylesheet" href="ai-chat.css">
+</head>
+<body class="sub-page">
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
+      </svg>
+    </span>
+    <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
+  </a>
+  <nav class="nav" id="nav">
+    <div class="nav-drop">
+      <a href="tender.html" aria-haspopup="true">产品</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="tender.html"><b>招标雷达</b><em>Tender Radar</em></a>
+        <a role="menuitem" href="hearing.html"><b>开庭公告</b><em>Hearing Docket</em></a>
+        <a role="menuitem" href="bounty.html"><b>执行悬赏</b><em>Bounty Notice</em></a>
+      </div>
+    </div>
+    <a href="pricing.html">定价</a>
+    <div class="nav-drop">
+      <a href="terms.html" aria-haspopup="true">文档</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="terms.html"><b>用户协议</b><em>Terms</em></a>
+        <a role="menuitem" href="privacy.html"><b>隐私政策</b><em>Privacy</em></a>
+        <a role="menuitem" href="/docs"><b>API 文档</b><em>API Reference</em></a>
+      </div>
+    </div>
+    <a href="about.html" class="on">关于</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="sub-head">
+    <div class="wrap">
+      <p class="sub-kicker"><span class="dot"></span>关于 · ABOUT</p>
+      <h1 class="sub-title">把公开的公告，<span class="hl">整理成能查的东西</span>。</h1>
+      <p class="sub-meta">版本 v1.0 · 2026 年 11 月 25 日 · 一个个人项目，代码在 GitHub</p>
+    </div>
+  </section>
+
+  <div class="wrap">
+  <article class="sub-body">
+
+    <p>lexify 是一个<strong>法律数据聚合与展示工具</strong>：把公开发布的招标采购公告、法院开庭公告、执行悬赏公告抓取、清洗、结构化，然后按看板与检索的方式呈现出来 —— 让你能回答「谁在买法律服务」「什么时候开庭」「谁在悬赏执行」这类问题。</p>
+
+    <div class="pstat">
+      <div><b>1,398</b><span>招标公告</span></div>
+      <div><b>1,224</b><span>开庭公告</span></div>
+      <div><b>679</b><span>执行悬赏</span></div>
+      <div><b>31</b><span>省级行政区</span></div>
+    </div>
+
+    <h2>给谁用</h2>
+    <ul>
+      <li><strong>找案源的律师与律所市场</strong>：谁刚被起诉、谁在采购法律服务、标的多大</li>
+      <li><strong>找项目的企业</strong>：招标公告里的采购方、预算与截止时间</li>
+      <li><strong>关注执行的债权人</strong>：悬赏公告里的被执行人、赏金比例与联系方式</li>
+    </ul>
+
+    <h2>三块数据，一个检索入口</h2>
+    <div class="pgrid">
+      <div class="pcard">
+        <h3>招标雷达</h3>
+        <p>政府采购与公共资源交易平台的招标、中标公告，抽出采购方、代理机构、预算、截止时间与地区，用来判断谁在花钱买服务。</p>
+      </div>
+      <div class="pcard">
+        <h3>开庭公告</h3>
+        <p>法院排期公告，抽出法院、案号、案由、当事人、开庭时间与法庭，用来看某家企业最近有没有官司。</p>
+      </div>
+      <div class="pcard">
+        <h3>执行悬赏</h3>
+        <p>法院执行悬赏公告，抽出被执行人、标的额、赏金比例与上限，用来找可执行的财产线索。</p>
+      </div>
+      <div class="pcard">
+        <h3>跨看板检索</h3>
+        <p>同一家公司可以同时出现在三块数据里 —— 用统一的关键词把招标、开庭、悬赏串起来看。</p>
+      </div>
+    </div>
+
+    <h2>怎么做的</h2>
+    <p>一个 Python 进程 + 一个 SQLite 库，前端是纯静态页面，没有前端框架。采集器在仓库的 <code>collectors/</code> 下，按站点配置抓取、正则与选择器抽取，再统一入库；导出脚本把库里的数据烤成前端读的快照。AI 咨询调用 DeepSeek 的模型，Key 只存在服务端，浏览器拿不到。</p>
+
+    <h2>边界</h2>
+    <p>数据来自公开渠道，抽取由程序完成，<strong>可能有错，也可能不全</strong>：字段识别会失败，部分站点有反爬与分页上限，公告本身也可能撤回。所以它是一个检索与线索工具 —— 涉及投标、应诉、申请执行等正式场合，请回到原始公告逐字核对。</p>
+    <p>本站不提供法律意见，也不代理案件。完整的服务口径见<a href="terms.html">用户协议</a>，数据与统计口径见<a href="privacy.html">隐私政策</a>。</p>
+
+    <h2>联系</h2>
+    <p>数据纠错、功能建议、合作，都可以提到 GitHub 仓库的 issue：<a href="https://github.com/bytemineur/lexify/issues" target="_blank" rel="noopener noreferrer">github.com/bytemineur/lexify/issues</a>。涉及侵权的内容，请附上原公告链接与权利证明。</p>
+
+    <p class="sub-note">一句话：这是个检索工具，把散落在各个官网的公告收拢到一处，方便你先看全局，再去核对原文。</p>
+
+  </article>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <a class="foot-brand" href="index.html"><strong>lexify</strong> 法律数据洞察平台</a>
+    <div class="foot-legal">
+      <p class="foot-note">© 2026 lexify. All rights reserved.</p>
+      <p class="foot-links"><a href="terms.html">用户协议</a><a href="privacy.html">隐私政策</a></p>
+      <a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">粤ICP备2026168850号</a>
+    </div>
+  </div>
+</footer>
+
+<script src="ai-chat.js"></script>
+<script src="nav-dropdown.js"></script>
+<script src="track.js"></script>
+</body>
+</html>

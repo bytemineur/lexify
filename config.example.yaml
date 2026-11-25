@@ -1,0 +1,65 @@
+# lexify 配置文件（模板）
+# ---------------------------------------------------------------------------
+# 用法：复制成 config.yaml 再改，config.yaml 不进 git（见 .gitignore）。
+#     cp config.example.yaml config.yaml          # Linux / macOS
+#     copy config.example.yaml config.yaml        # Windows
+#
+# 优先级：命令行参数 > 环境变量 LEXIFY_* > 本文件 > 代码默认值。
+# 也就是说：同一个值写在环境变量里会盖掉这里，方便临时覆盖、也方便 systemd 里写。
+#
+# 格式说明：两级缩进、`键: 值`、`#` 注释、字符串不需要引号（含 # 或冒号时请加引号）。
+# 只支持这些，故意的 —— 配置文件越简单，越不会因为格式错误让站点起不来。
+# ---------------------------------------------------------------------------
+
+# ── 站点 ────────────────────────────────────────────────────────────
+server:
+  # 监听地址。0.0.0.0 = 所有网卡（公网/局域网可访问）；127.0.0.1 = 只本机。
+  bind: 0.0.0.0
+  port: 8010
+  # 每日几点自动采集更新（HH:MM）。schedule: false 则完全关掉定时。
+  update_at: "00:30"
+  schedule: true
+
+# ── 后台口令 ────────────────────────────────────────────────────────
+admin:
+  # 留空 = 首次启动自动生成到 data/admin_token.txt，并打印在控制台。
+  token: ""
+  # true = 后台不设防（任何人都能进），只在内网/本机调试时开。
+  open: false
+  # 口令文件位置（token 留空时用到）。相对路径以项目根目录为基准。
+  token_file: data/admin_token.txt
+
+# ── 数据库 ──────────────────────────────────────────────────────────
+db:
+  # SQLite 库位置。换库 = 换数据，不动代码。
+  path: data/lexify.db
+
+# ── AI 咨询（页面右下角的「乐菲」） ─────────────────────────────────
+# 填好 api_key 重启进程，站点右下角的 AI 入口才会出现。
+ai:
+  # DeepSeek API Key，形如 sk-xxxxxxxx。填这里就是本项目推荐的配置方式。
+  api_key: ""
+  base_url: https://api.deepseek.com
+  model: deepseek-flash
+  # off = 关闭思考模式（客服场景要快）；low / medium / high 也可以。
+  thinking: off
+  timeout: 90
+  # false = 关闭 AI 咨询入口（同 LEXIFY_AI_DISABLED=1）。
+  enabled: true
+
+# ── 访问统计（后台「访问分析」页的数据来源） ─────────────────────────
+analytics:
+  # false = 不再记录浏览，后台只显示历史数据。
+  enabled: true
+  # 原始浏览记录保留多少天，超期自动清理（汇总数据也从原始记录算，所以别设太小）。
+  retention_days: 180
+  # 访客浏览器发 DNT: 1 时不记录（尊重「请勿跟踪」）。
+  respect_dnt: true
+  # IP 只存 sha256(盐 + IP) 的前 16 位，盐留空则用后台口令当盐。
+  hash_salt: ""
+
+# ── 采集 ────────────────────────────────────────────────────────────
+# 写在这节的键会覆盖 collectors/ 里各来源的默认行为（一般不用改）。
+crawl:
+  # 定时任务里是否顺便重建 web/data 快照并推送 GitHub（需要 GITHUB_TOKEN）。
+  publish: false

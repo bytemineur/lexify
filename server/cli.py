@@ -9,8 +9,9 @@ import os
 import threading
 
 from . import jobs as jobsmod
-from .config import (ADMIN_COOKIE, ADMIN_OPEN, ADMIN_TOKEN, DB, DB_FIX_HINT,
-                     PY, compat_describe, load_admin_token, setup_console)
+from .config import (ADMIN_COOKIE, ADMIN_OPEN, ADMIN_TOKEN, BIND, DB, DB_FIX_HINT, PORT,
+                     PY, SCHEDULE, UPDATE_AT, compat_describe, config_summary,
+                     load_admin_token, setup_console)
 from .db import db_is_empty, db_writable
 from .web import Handler, QuietHTTPServer
 
@@ -23,17 +24,18 @@ def ai_line(disabled=False):
     except Exception as e:
         return "未启用（%s）" % e
     if disabled or not s["enabled"]:
-        return "未启用 → 配置 LEXIFY_AI_API_KEY 或 DEEPSEEK_API_KEY 后重启"
+        return "未启用 → 在 config.yaml 填 ai.api_key（或设 LEXIFY_AI_API_KEY）后重启"
     return "已启用 · 模型 %s · Key 来源：%s" % (s["model"], s["keySource"])
 
 
 def main():
     setup_console()
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=int(os.environ.get("LEXIFY_PORT", "8010")))
-    ap.add_argument("--bind", default=os.environ.get("LEXIFY_BIND", "0.0.0.0"))
-    ap.add_argument("--at", default=os.environ.get("LEXIFY_UPDATE_AT", "00:30"), help="每天几点更新 HH:MM")
+    ap.add_argument("--port", type=int, default=PORT)
+    ap.add_argument("--bind", default=BIND)
+    ap.add_argument("--at", default=UPDATE_AT, help="每天几点更新 HH:MM")
     ap.add_argument("--no-schedule", action="store_true", help="不跑定时任务")
+    ap.add_argument("--schedule", action="store_true", help="强制开启定时任务（配置里关了也能开）")
     ap.add_argument("--admin-only", action="store_true", help="只开后台（本地维护用）")
     ap.add_argument("--admin-token", default="", help="后台口令（同 LEXIFY_ADMIN_TOKEN）")
     ap.add_argument("--admin-open", action="store_true", help="不设防，允许任何人进后台（仅限内网）")
@@ -43,6 +45,8 @@ def main():
     args = ap.parse_args()
 
     import server.config as cfg
+    if not SCHEDULE and not args.schedule:
+        args.no_schedule = True
     if args.no_ai:
         os.environ["LEXIFY_AI_DISABLED"] = "1"
     if args.admin_token:
@@ -97,6 +101,7 @@ def main():
     print("站点：  %s/" % base)
     print("后台：  %s/admin" % base)
     print("定时：  %s" % ("关闭" if args.no_schedule else "每天 " + args.at))
+    print("配置：  %s" % config_summary())
     print("AI 咨询：%s" % ai_line(args.no_ai))
     print("统一库：%s" % DB)
     print("运行于：%s（不依赖 shell，cmd / PowerShell / bash 都一样）" % compat_describe())

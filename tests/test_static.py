@@ -68,7 +68,13 @@ def check_links(html_files):
         for r in refs:
             if r.startswith(("http://", "https://", "data:", "#", "mailto:", "javascript:")):
                 continue
-            target = os.path.join(WEB, r.split("?")[0].split("#")[0])
+            path = r.split("?")[0].split("#")[0]
+            if path.startswith("/"):
+                # 根路径：/admin.css 这种当文件查；/docs 这种没扩展名的当服务端路由（由 server/web.py 提供）
+                if "." not in path.rsplit("/", 1)[-1]:
+                    continue
+                path = path.lstrip("/")
+            target = os.path.join(WEB, path)
             if not os.path.exists(target):
                 broken.append(r)
         ok("%s 引用文件均存在" % os.path.basename(f), not broken, "断链 " + ", ".join(broken))
@@ -177,7 +183,10 @@ def check_shell(html_files):
         ok("%s 加载 board.js" % page, "board.js" in s)
         ok("%s 三块导航齐全" % page,
            all(h in s for h in ("tender.html", "hearing.html", "bounty.html")))
-        ok("%s 当前页导航高亮" % page, 'data-b="%s" class="on"' % key in s)
+        # 看板页现在是和首页同一套主导航：一级「产品」高亮，当前那块在二级菜单里标 aria-current
+        ok("%s 当前页导航高亮" % page,
+           'class="on" aria-haspopup="true">产品' in s
+           and ('role="menuitem" href="%s" aria-current="page"' % page) in s)
         # 千禧年改版后只剩浅色一种主题，切换按钮与首帧防闪脚本一并撤掉；
         # 断言改为「必须显式声明 light，且不能再残留主题读写的痕迹」。
         ok("%s 主题固定为浅色（切换已撤）" % page,
@@ -281,9 +290,11 @@ def check_docs():
     auth_py = read(os.path.join(server_dir, "auth.py"))
     db_py = read(os.path.join(server_dir, "db.py"))
     admin_py = read(os.path.join(server_dir, "admin.py"))
-    m = re.search(r'LEXIFY_PORT"\s*,\s*"(\d+)"', cli_py)
+    # 默认端口现在由 config.yaml / LEXIFY_PORT 决定，兜底值写在 server/config.py 里
+    m = (re.search(r'PORT\s*=\s*(?:int\()?env_or_conf\([^)]*?,\s*(\d{2,5})\)', cfg_py) or
+         re.search(r'LEXIFY_PORT"\s*,\s*"(\d+)"', cli_py))
     default_port = m.group(1) if m else "?"
-    ok("server/cli.py 默认端口为 8010", default_port == "8010", default_port)
+    ok("默认端口为 8010", default_port == "8010", default_port)
 
     # 文档里出现的端口必须就是默认端口，别一边 8010 一边别的
     for d in docs:
@@ -305,7 +316,10 @@ def check_docs():
     ok("server 覆盖 handle_error，不再打断连堆栈", "def handle_error" in web_py)
     ok("server 启动前探测库可写", "def db_writable" in db_py)
     ok("只读库时给现成的修复命令", "chown -R" in cfg_py and "chown -R" in admin_py)
-    ok("后台页有不可写横幅", "{notice}" in admin_py and "notice=notice" in admin_py)
+    ok("后台页有不可写横幅",
+       "数据目录不可写" in admin_py and "anotice bad" in admin_py and "writable" in admin_py)
+    ok("后台与前台共用一套皮肤（引 style.css / millennium.css / admin.css）",
+       "/style.css" in admin_py and "/millennium.css" in admin_py and "/admin.css" in admin_py)
     ok("后台口令不落日志（token 打码）", "token=" in web_py and "_redact_path" in web_py)
     ok("上传有体积上限（Content-Length 校验）", "Content-Length" in web_py and "MAX_UPLOAD" in web_py)
     ok("静态文件 realpath 防符号链接逃逸", "realpath" in web_py)

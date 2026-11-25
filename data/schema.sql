@@ -238,3 +238,38 @@ CREATE TABLE IF NOT EXISTS court_coverage (
 
 -- 版本号由 manage.py 在 ensure_schema 里写，不在这里硬编码，
 -- 否则每次重复执行 schema 都会把版本号冲回去。
+
+-- ============================================================
+--  访问统计（后台「访问分析」页的数据来源，server/analytics.py）
+--  ------------------------------------------------------------
+--  只记浏览事实：哪个页面、从哪来、停了多久。
+--  不留原始 IP：ip_hash = sha256(盐 + IP) 取前 16 位，只能区分访客，反推不出地址。
+--  没有 Cookie、没有账号，sid 由前端 sessionStorage 生成，关标签页即失效。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS page_views (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    vid         TEXT NOT NULL,                  -- 单次页面浏览的 id（离页时按它补停留时长）
+    ts          INTEGER NOT NULL,               -- unix 秒
+    day         TEXT NOT NULL,                  -- 本地日期 YYYY-MM-DD（报表按天聚合）
+    hour        INTEGER NOT NULL,               -- 本地小时 0-23
+    path        TEXT NOT NULL,                  -- 页面路径（不带域名）
+    query       TEXT,                           -- 查询串，原样保留（≤300 字）
+    kw          TEXT,                           -- 从 ?q= 抠出的搜索词，报表「搜索词 Top」用
+    title       TEXT,                           -- 页面标题
+    referrer    TEXT,                           -- 来源页 URL
+    ref_host    TEXT,                           -- 来源域名
+    ref_kind    TEXT,                           -- direct / internal / search / external
+    ua          TEXT,                           -- User-Agent（≤200 字）
+    browser     TEXT,                           -- Chrome / Safari / Edge / Firefox / 其他
+    os          TEXT,                           -- Windows / macOS / iOS / Android / Linux
+    device      TEXT,                           -- desktop / mobile / tablet / bot
+    ip_hash     TEXT,                           -- 加盐哈希，16 位
+    sid         TEXT,                           -- 会话 id（前端 sessionStorage）
+    dwell_ms    INTEGER DEFAULT 0,              -- 停留毫秒
+    is_bot      INTEGER DEFAULT 0               -- 1 = 识别为爬虫，报表默认排除
+);
+CREATE INDEX IF NOT EXISTS idx_pv_ts   ON page_views(ts);
+CREATE INDEX IF NOT EXISTS idx_pv_day  ON page_views(day);
+CREATE INDEX IF NOT EXISTS idx_pv_path ON page_views(path);
+CREATE INDEX IF NOT EXISTS idx_pv_sid  ON page_views(sid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_vid ON page_views(vid);

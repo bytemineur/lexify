@@ -53,7 +53,7 @@
 看起来有几千条、库里可能一条没有。现在看板页头标「**实时 · 数据库**」；
 只有后端没起或 `file://` 打开时才退回快照，并明确标「**离线快照**」——两种标注措辞不同，不混淆。
 
-**页面清单**（共 5 页）：
+**页面清单**（4 个数据页 + 4 个子页）：
 
 | 页面 | 定位 |
 |---|---|
@@ -61,7 +61,13 @@
 | `tender.html` | 招标列表：前端筛选全量数据 + 详情弹窗 + 侧栏分布 |
 | `hearing.html` | 开庭公告 |
 | `bounty.html` | 执行悬赏 |
-| `radar.html` | 快捷检索：服务端筛选 + 分页 + CSV（不在首页导航里，直接访问 `/radar.html`） |
+| `pricing.html` | 定价：公测期 0 元，写清收费口径 |
+| `about.html` | 关于：产品是什么、给谁用、边界 |
+| `terms.html` | 用户协议（文档下拉入口，口径与边界） |
+| `privacy.html` | 隐私政策（写了访问统计到底收什么） |
+
+> 顶栏导航：**看板**（下拉：招标雷达 / 开庭公告 / 执行悬赏）、**定价**、**文档**（下拉：用户协议 / 隐私政策 / API 文档）、**关于**；桌面端导航居中、顶栏 sticky 固定在顶部。
+> 七张页面共用同一份导航标记 —— 三个看板页也不再有自己的「胶囊页签」，切板块统一走「看板」下拉（触屏点一下展开、点第二下收起）。
 
 > 早前吸收自 tender-radar 的 `dashboard.html`（招标看板）与 `sources.html`（采集来源）已**删除**：
 > 前者与 `tender.html` 的侧栏分布重复，后者把内部采集状态摊到了公开页面上。
@@ -78,13 +84,17 @@ lexify/
 │  ├─ tender.html           # 三个看板页：外壳完全一致，差别只在 LexBoard({...}) 配置
 │  ├─ hearing.html
 │  ├─ bounty.html
-│  ├─ radar.html            # 快捷检索：服务端筛选 + 分页 + CSV
+│  ├─ pricing.html          # 定价页（0 元）
+│  ├─ about.html            # 关于页（产品介绍）
+│  ├─ terms.html            # 用户协议
+│  ├─ privacy.html          # 隐私政策
 │  ├─ style.css             # 基础设计系统（tokens、布局、首页）
 │  ├─ board.css             # 看板页专用（KPI、筛选器、表格、侧栏、弹窗）
 │  ├─ millennium.css        # 唯一的皮肤：电光蓝单色 + 方角 + 1px 发丝线
+│  ├─ subpage.css           # 子页排版（协议 / 定价 / 关于），不重复定义颜色
+│  ├─ admin.css             # 后台排版，同样只补布局件
 │  ├─ app.js                # 首页：数字滚动、⌘K 命令面板、首屏真实记录预览、导航高亮
 │  ├─ board.js              # 看板引擎：筛选 / 排序 / 分页 / 渲染 / 导出，配置驱动
-│  ├─ radar.js  radar.css   # 快捷检索页
 │  ├─ nav-dropdown.js       # 导航二级菜单
 │  ├─ ai-chat.js            # 右下角 AI 咨询入口：SSE 流式对话，读 /api/ai/*
 │  ├─ ai-chat.css           # 咨询面板皮肤（沿用 millennium 的方角 + 发丝线）
@@ -219,6 +229,87 @@ python scripts/manage.py failures         # 看采集/导入失败记录
 
 ---
 
+## 配置文件（config.yaml）
+
+所有可调项都收在项目根目录的一个文件里，不用记环境变量：
+
+```bash
+cp config.example.yaml config.yaml     # 模板已入库，config.yaml 本身不进 git（里面有 Key）
+notepad config.yaml                    # 或 vim / VSCode
+```
+
+```yaml
+server:
+  bind: 0.0.0.0          # 只给本机用可以写 127.0.0.1
+  port: 8010
+  schedule: true         # 每天定时采集
+  update_at: "00:30"
+
+admin:
+  token: ""              # 留空 = 只允许本机直连后台
+  open: false            # true = 不设防（仅限内网）
+
+db:
+  path: data/lexify.db
+
+ai:                      # 右下角「乐菲」客服
+  api_key: ""            # 填 sk-… 后重启即可，入口自动出现
+  base_url: https://api.deepseek.com
+  model: deepseek-flash
+  thinking: "off"
+  timeout: 90
+
+analytics:               # 访问统计（后台「访问分析」页签的数据来源）
+  enabled: true
+  retention_days: 180    # 原始记录保留天数，过期自动清
+  respect_dnt: true      # 访客浏览器开 DNT 就不记
+  hash_salt: ""          # 留空则用后台口令当盐；IP 只存加盐哈希
+
+crawl:
+  publish: false         # 采集完是否自动推 GitHub（要 GITHUB_TOKEN）
+```
+
+**优先级**：`LEXIFY_*` 环境变量 > `config.yaml` > 代码里的默认值。
+改了配置要**重启进程**（值在启动时读入）；只有 AI 的 Key 和统计开关是每次请求现读。
+
+| 用环境变量覆盖 | 对应配置项 |
+|---|---|
+| `LEXIFY_BIND` / `LEXIFY_PORT` | `server.bind` / `server.port` |
+| `LEXIFY_UPDATE_AT` / `LEXIFY_SCHEDULE` | `server.update_at` / `server.schedule` |
+| `LEXIFY_ADMIN_TOKEN` / `LEXIFY_ADMIN_OPEN` | `admin.token` / `admin.open` |
+| `LEXIFY_DB` | `db.path` |
+| `LEXIFY_AI_API_KEY` / `LEXIFY_AI_MODEL` / `LEXIFY_AI_BASE_URL` / `LEXIFY_AI_THINKING` / `LEXIFY_AI_TIMEOUT` / `LEXIFY_AI_DISABLED` | `ai.*` |
+| `LEXIFY_TRACK_RATE` | 每个 IP 每分钟最多上报多少条浏览（默认 120） |
+
+配置文件放在别处也行：`LEXIFY_CONFIG=/etc/lexify/config.yaml python main.py`。
+没有 config.yaml 时全部走默认值，行为和老版本一致。
+
+---
+
+## 访问分析（后台）
+
+后台 `http://127.0.0.1:8010/admin` 现在分四个页签：
+
+| 页签 | 看什么 |
+|---|---|
+| 概览 | 今日 PV / UV、近 7 天趋势图、页面与来源排名、最近访问、库内条数 |
+| 访问分析 | 7 / 30 / 90 天区间：趋势、来源分类（直接 / 搜索 / 外链 / 站内）、来源域名、页面排行、搜索词、时段分布、设备与浏览器 |
+| 数据与采集 | 手动更新、上传导入、重建快照、采集失败与最近导入 |
+| 系统与配置 | AI 状态、配置文件是否生效、库与 schema 版本、监听地址、后台口令 |
+
+统计是自建的轻量方案，没有第三方脚本、没有 Cookie 追踪：
+
+- 后台和用户协议 / 隐私政策 / 定价 / 关于页**复用前台的皮肤**：页面挂 `html[data-mlp]`，引
+  `style.css` + `millennium.css`，只多加载 `web/admin.css` / `web/subpage.css` 两个布局件，
+  所以颜色、字号、发丝线、方角跟前台是同一套（改前台样式，后台跟着变）。
+- `web/track.js` 在五个页面加载，POST `/api/track` 记一条 PV；离页时用 `sendBeacon` 补停留时长。
+- 后端 `server/analytics.py` 写 `page_views` 表：**IP 只存 `sha256(盐 + IP)` 的前 16 位**，不留原始地址。
+- 机器人（搜索引擎、爬虫、脚本 UA）直接标记 `is_bot=1`，不进任何统计口径；DNT=1 的访客不记录。
+- 保留期由 `analytics.retention_days` 控制，启动时清一次旧记录。
+- 不想统计就把 `analytics.enabled` 设成 `false`（上报接口直接返回 204，一个字节都不落库）。
+
+---
+
 ## 数据怎么来
 
 采集器在 `collectors/` 里，三个采集器已经并进来（不再依赖外部仓库）。
@@ -341,9 +432,16 @@ python -m collectors.courtbook status          # 看库里现在有什么
 |---|---|
 | 1 | 环境变量 `LEXIFY_AI_API_KEY` |
 | 2 | 环境变量 `DEEPSEEK_API_KEY` |
-| 3 | DSH 凭据文件 `~/.dsh/.credentials.yaml` 里的 `DEEPSEEK_API_KEY`（装了 DeepSeek Harness 时自动复用） |
+| 3 | `config.yaml` 里的 `ai.api_key`（推荐，见下文「配置文件」） |
+| 4 | DSH 凭据文件 `~/.dsh/.credentials.yaml` 里的 `DEEPSEEK_API_KEY`（装了 DeepSeek Harness 时自动复用） |
 
 ```bash
+# 推荐：把 Key 写进项目根目录的 config.yaml
+# ai:
+#   api_key: "sk-..."
+python main.py
+
+# 或者只在本机临时生效（不改文件）
 # Windows PowerShell
 $env:DEEPSEEK_API_KEY = "sk-..."
 python main.py
@@ -581,7 +679,7 @@ python3 main.py                        # → http://<服务器>:8010/
 - **人民法院公告网会限流**：同一 IP 连续请求十几次后会先「全部返回 0」、再变成 403，冷却后恢复。所以按法院遍历必须低频（默认 8 秒一次）并靠 `data/crawl_ledger.json` 分批续跑，一轮跑不完 500 多家。
 - **法院通讯录约 2008–2010 年的数据**：源站仍收录芳村区、宣武区等已撤销区划，且没有南沙区、龙华区、三沙市等 2010 年后新设区划。地址电话整体可用，新设或迁址的法院需另行核对；海南在源站是空的。详见[法院通讯录](#法院通讯录)。
 - **数据时效分两层**：看板数字实时读库；`web/data/*.js` 快照只在后端不可用时兜底，此时页头会标「离线快照」。某块数据可能比另一块旧（比如悬赏的发布日整体偏早），筛选结果为 0 条时先看这个时间。
-- **筛选在前端做**：全量数据一次性下发（三块导出合计约 7 MB，大头是公告正文快照），换来的是零后端、`file://` 可用、筛选零延迟。只有 `radar.html` 走服务端筛选分页。数据量再涨一个数量级，看板引擎的 `state` 结构可以原样复用，只换数据源。
+- **筛选在前端做**：全量数据一次性下发（三块导出合计约 7 MB，大头是公告正文快照），换来的是零后端、`file://` 可用、筛选零延迟。数据量再涨一个数量级，看板引擎的 `state` 结构可以原样复用，只换数据源。
 - **不做判断**：只做结构化与排序，不给结论、不替代律师意见。
 
 ---

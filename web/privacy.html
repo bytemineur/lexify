@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mlp>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>隐私政策 · lexify</title>
+<meta name="description" content="lexify 隐私政策：本站不设注册登录，只做匿名访问统计；IP 只存加盐哈希；AI 咨询的对话会发给模型服务商。">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="subpage.css">
+<link rel="stylesheet" href="ai-chat.css">
+</head>
+<body class="sub-page">
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
+      </svg>
+    </span>
+    <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
+  </a>
+  <nav class="nav" id="nav">
+    <div class="nav-drop">
+      <a href="tender.html" aria-haspopup="true">产品</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="tender.html"><b>招标雷达</b><em>Tender Radar</em></a>
+        <a role="menuitem" href="hearing.html"><b>开庭公告</b><em>Hearing Docket</em></a>
+        <a role="menuitem" href="bounty.html"><b>执行悬赏</b><em>Bounty Notice</em></a>
+      </div>
+    </div>
+    <a href="pricing.html">定价</a>
+    <div class="nav-drop">
+      <a href="terms.html" class="on" aria-haspopup="true">文档</a>
+      <div class="nav-drop-menu" role="menu">
+        <a role="menuitem" href="terms.html"><b>用户协议</b><em>Terms</em></a>
+        <a role="menuitem" href="privacy.html"><b>隐私政策</b><em>Privacy</em></a>
+        <a role="menuitem" href="/docs"><b>API 文档</b><em>API Reference</em></a>
+      </div>
+    </div>
+    <a href="about.html">关于</a>
+  </nav>
+</header>
+
+<main>
+  <section class="sub-head">
+    <div class="wrap">
+      <p class="sub-kicker"><span class="dot"></span>隐私政策 · Privacy Policy</p>
+      <h1 class="sub-title">不注册、不画像，<span class="hl">只数有多少人看</span>。</h1>
+      <p class="sub-meta">版本 v1.0 · 生效日期 2026 年 11 月 25 日 · 与站内实际实现的统计口径一致</p>
+    </div>
+  </section>
+
+  <div class="wrap"><article class="sub-body">
+    <p>本站是一个公开的法律数据看板，<strong>没有注册、登录、付费或会员体系</strong>，因此我们不会拿到你的姓名、手机号、邮箱、身份证号等信息。本页说明我们实际收集了什么、怎么用、存多久，以及你可以怎么关掉。</p>
+
+    <nav class="sub-toc" aria-label="目录">
+      <strong>目录</strong>
+      <ol>
+        <li><a href="#p1">我们不收集什么</a></li>
+        <li><a href="#p2">访问统计收集什么</a></li>
+        <li><a href="#p3">IP 地址怎么处理</a></li>
+        <li><a href="#p4">本地存储</a></li>
+        <li><a href="#p5">AI 咨询助手</a></li>
+        <li><a href="#p6">第三方服务</a></li>
+        <li><a href="#p7">保存期限</a></li>
+        <li><a href="#p8">你的选择与权利</a></li>
+        <li><a href="#p9">未成年人</a></li>
+        <li><a href="#p10">政策更新与联系方式</a></li>
+      </ol>
+    </nav>
+
+    <h2 id="p1">一、我们不收集什么</h2>
+    <ul>
+      <li>不要求注册，不收集姓名、手机号、邮箱、身份证号；</li>
+      <li>不收集精确位置、通讯录、相册、剪贴板；</li>
+      <li>不投放广告，不做跨站追踪，不向广告平台共享数据；</li>
+      <li>不把访问记录与任何真实身份关联。</li>
+    </ul>
+
+    <h2 id="p2">二、访问统计收集什么</h2>
+    <p>为了知道哪块数据真的有人看、哪些页面需要优化，本站记录匿名的浏览事件，字段如下：</p>
+    <ul>
+      <li>页面路径（如 <code>/tender.html</code>）与查询参数里的关键词；</li>
+      <li>来源域名（从哪个站点跳转过来，或直接访问）；</li>
+      <li>浏览器类型、操作系统、设备类型（桌面 / 手机 / 平板）；</li>
+      <li>本次访问的停留时长（页面关闭时上报）；</li>
+      <li>一个<strong>临时随机会话标识</strong>，保存在浏览器 sessionStorage 里，关闭标签页即失效，用来区分「同一个人看了 5 页」和「5 个人各看 1 页」；</li>
+      <li>IP 地址的<strong>不可逆哈希</strong>（见下节），原始 IP 不落盘。</li>
+    </ul>
+    <p>服务端会按浏览器标识过滤常见爬虫与自动化工具（标记为机器人，不计入统计口径）。</p>
+
+    <h2 id="p3">三、IP 地址怎么处理</h2>
+    <p>记录访问时，服务端对 IP 做一次 <strong>SHA-256（加固定盐）</strong>计算，只保留结果的前 16 位十六进制字符，原始 IP 地址既不写日志也不入库。该哈希只用于粗略区分不同网络来源、统计独立访客数量，<strong>无法还原出 IP</strong>，也不与任何账号关联。</p>
+
+    <h2 id="p4">四、本地存储</h2>
+    <p>本站不使用跟踪型 Cookie。浏览器本地只存两类数据：</p>
+    <ul>
+      <li><code>localStorage</code>：你的主题偏好（深色 / 浅色），下次打开时沿用；</li>
+      <li><code>sessionStorage</code>：上面说的临时会话标识，仅在当前标签页生命周期内有效。</li>
+    </ul>
+    <p>清空浏览器站点数据即可移除这两项，不影响页面功能。</p>
+
+    <h2 id="p5">五、AI 咨询助手（乐菲）</h2>
+    <p>页面右下角的 AI 咨询入口是可选的，只有你主动输入问题才会触发：</p>
+    <ul>
+      <li>你输入的问题、以及本次对话的历史消息，会通过加密连接发送给模型服务商以生成回答；</li>
+      <li>本站服务端<strong>不把对话内容写入数据库或日志</strong>，刷新页面后对话即从浏览器内存消失；</li>
+      <li>请不要在提问里填写身份证号、银行账号、未公开的案件材料等敏感信息；</li>
+      <li>模型服务商可能按其自身条款处理请求数据，具体见其隐私文档。</li>
+    </ul>
+
+    <h2 id="p6">六、第三方服务</h2>
+    <p>目前只有一处：AI 咨询功能会把问答内容发送给 <strong>DeepSeek（深度求索）</strong>的 API 以生成回答。除此之外，页面不加载任何第三方统计、广告或字体 CDN。</p>
+
+    <h2 id="p7">七、保存期限</h2>
+    <p>匿名访问记录默认保留 <strong>180 天</strong>，到期后由服务端自动删除；被判定为机器人的记录不计入统计口径，也遵循同一保留期。原始公告数据本身来自公开渠道，不含个人信息以外的额外采集。</p>
+
+    <h2 id="p8">八、你的选择与权利</h2>
+    <ul>
+      <li><strong>拒绝统计</strong>：浏览器开启 Do Not Track，或使用带 <code>?notrack=1</code> 的链接进入，本站就不会上报你的访问；</li>
+      <li><strong>关闭脚本</strong>：禁用 JavaScript 后统计脚本不执行，页面内容仍然可读；</li>
+      <li><strong>删除请求</strong>：如需核对或删除与你相关的记录，可通过下方联系方式提出，我们会在合理期限内答复。</li>
+    </ul>
+
+    <h2 id="p9">九、未成年人</h2>
+    <p>本站面向法律服务机构与相关从业者，不针对未成年人提供服务，也不会有意收集未成年人的个人信息。</p>
+
+    <h2 id="p10">十、政策更新与联系方式</h2>
+    <p>本政策如随功能调整而更新，将在本页发布新版本并标注生效日期。对隐私问题有疑问，或需要行使上述权利，可通过项目仓库反馈：<a href="https://github.com/bytemineur/lexify/issues" target="_blank" rel="noopener noreferrer">github.com/bytemineur/lexify/issues</a>。</p>
+
+    <p class="sub-note">一句话总结：本站不注册、不画像，只记「哪个页面被看了多久」这类匿名事件，IP 只存加盐哈希；AI 咨询的对话会发给 DeepSeek，但不会存在本站服务器上。</p>
+  </article></div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <a class="foot-brand" href="index.html"><strong>lexify</strong> 法律数据洞察平台</a>
+    <div class="foot-legal">
+      <p class="foot-note">© 2026 lexify. All rights reserved.</p>
+      <p class="foot-links"><a href="terms.html">用户协议</a><a href="privacy.html">隐私政策</a></p>
+      <a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">粤ICP备2026168850号</a>
+    </div>
+  </div>
+</footer>
+
+<script src="ai-chat.js"></script>
+<script src="nav-dropdown.js"></script>
+<script src="track.js"></script>
+</body>
+</html>

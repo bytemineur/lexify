@@ -28,6 +28,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import ai as aimod
+from . import analytics as anamod
 from . import auth as authmod
 from . import admin as adminmod
 from . import data as datamod
@@ -48,6 +49,29 @@ _hits_lock = threading.Lock()
 
 # gzip 结果按 (路径, mtime, size) 缓存，超出 40 项就整体清空。
 _gz_cache = {}
+
+# 访问统计：单条上限、每 IP 每分钟上报次数。前端每看一页发 1~2 条，
+# 正常浏览远到不了上限，主要是挡住脚本灌数据。
+TRACK_MAX_BODY = 4 * 1024
+TRACK_RATE_PER_MIN = int(os.environ.get("LEXIFY_TRACK_RATE", "120"))
+_track_hits = {}
+_track_lock = threading.Lock()
+
+
+def track_allow(ip):
+    """统计上报的每 IP 每分钟限流（固定窗口）。返回 (是否放行, 已用次数)。"""
+    now = time.time()
+    with _track_lock:
+        bucket = [t for t in _track_hits.get(ip, []) if now - t < 60]
+        if len(bucket) >= TRACK_RATE_PER_MIN:
+            _track_hits[ip] = bucket
+            return False, len(bucket)
+        bucket.append(now)
+        _track_hits[ip] = bucket
+        if len(_track_hits) > 2000:
+            for k in [k for k, v in _track_hits.items() if not v or now - v[-1] > 300]:
+                _track_hits.pop(k, None)
+    return True, len(bucket)
 
 
 def ai_allow(ip):
@@ -176,9 +200,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/admin/api/stats":
             if not authmod.admin_ok(self.client_address[0], self.headers, self.path):
                 return self._send(403, '{"error":"forbidden"}', "application/json; charset=utf-8")
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            days = adminmod.clamp_days((q.get("days") or ["7"])[0])
             counts, runs, fails = adminmod.db_stats()
             body = {"counts": counts or {}, "runs": runs, "failures": fails,
-                    "db": DB, "exists": os.path.exists(DB)}
+                    "db": DB, "exists": os.path.exists(DB),
+                    "analytics": anamod.stats(days)}
             return self._send(200, json.dumps(body, ensure_ascii=False, default=str),
                               "application/json; charset=utf-8")
 
@@ -195,7 +222,10 @@ class Handler(BaseHTTPRequestHandler):
             cookie = authmod.set_cookie(self.headers, self.path)
             if cookie:
                 extra["Set-Cookie"] = cookie
-            return self._send(200, adminmod.render(), extra=extra)
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            tab = (q.get("tab") or ["overview"])[0]
+            days = adminmod.clamp_days((q.get("days") or ["7"])[0])
+            return self._send(200, adminmod.render(tab=tab, days=days), extra=extra)
         if path in ("/", ""):
             path = "/index.html"
         return self._static(path)
@@ -247,6 +277,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
         if path.startswith("/api/ai/"):
             return self._ai_post(path)
+        if path == "/api/track":
+            return self._track_post()
         if not (path.startswith("/admin/")):
             return self._send(404, "not found")
         if not authmod.admin_ok(self.client_address[0], self.headers, self.path):
@@ -332,6 +364,49 @@ class Handler(BaseHTTPRequestHandler):
             headers["Content-Encoding"] = "gzip"
             headers["Vary"] = "Accept-Encoding"
         return self._send(code, data, "application/json; charset=utf-8", headers)
+
+    # ---------- 访问统计上报 ----------
+    def _no_content(self, code=204, extra=None):
+        headers = {"Cache-Control": "no-store"}
+        headers.update(extra or {})
+        return self._send(code, "", "text/plain; charset=utf-8", headers)
+
+    def _track_post(self):
+        """前端 track.js 的上报入口。
+
+        和 AI 接口一样是公开 POST，所以同样守住三条：同源、体积、限流。
+        记不上也返回 204 —— 统计失败不该在浏览器控制台留一堆报错。
+        """
+        ip = self.client_address[0]
+        if not anamod.enabled():
+            return self._no_content()
+        if anamod.respect_dnt() and (self.headers.get("DNT") or "").strip() == "1":
+            return self._no_content()
+        if not self._same_origin():
+            return self._no_content(403)
+        ok, _used = track_allow(ip)
+        if not ok:
+            return self._no_content(429, {"Retry-After": "30"})
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length > TRACK_MAX_BODY:
+            return self._no_content(413)
+        if length <= 0:
+            return self._no_content()
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8", "replace"))
+        except (ValueError, OSError):
+            return self._no_content(400)
+        if not isinstance(payload, dict):
+            return self._no_content(400)
+        if str(payload.get("event") or "view") == "leave":
+            anamod.record_leave(payload.get("vid"), payload.get("dwell"))
+        else:
+            payload["ua"] = self.headers.get("User-Agent") or ""
+            anamod.record(payload, ip)
+        return self._no_content()
 
     # ---------- 实时数据 ----------
     def _data_api(self, path, query):
@@ -419,9 +494,9 @@ class Handler(BaseHTTPRequestHandler):
 
         cfg = aimod.settings()
         if not cfg["enabled"]:
-            return self._json(503, {"error": "服务端还没配置 API Key（LEXIFY_AI_API_KEY 或 "
-                                             "DEEPSEEK_API_KEY），AI 咨询暂时不可用。",
-                                     "hint": "配好后重启即可，页面会自动出现入口。"})
+            return self._json(503, {"error": "服务端还没配置 API Key（config.yaml 的 ai.api_key，"
+                                             "或环境变量 LEXIFY_AI_API_KEY），AI 咨询暂时不可用。",
+                                     "hint": "配好后重启进程即可，页面会自动出现入口。"})
         key, _ = aimod.api_key()
         cfg["key"] = key
 

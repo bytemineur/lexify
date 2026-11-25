@@ -778,6 +778,27 @@ svg { display: block; }
   line-height: 1.75;
   color: var(--text-3);
 }
+.foot-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--text-3);
+}
+.foot-links a {
+  color: var(--text-3);
+  transition: color .14s cubic-bezier(.22, 1, .36, 1);
+}
+.foot-links a:hover { color: var(--accent-ink); }
+.foot-icp {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.foot-icp:hover { color: var(--accent-ink); }
 
 /* ── 检索浮层 ───────────────────────────────────── */
 .palette[hidden] { display: none; }

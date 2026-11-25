@@ -10,7 +10,7 @@
 
 设计约束（和站点其余部分一致）：
   1. 只用标准库。站点不装依赖也能起，AI 只是多要求一个 API Key。
-  2. Key 只从环境变量 / DSH 凭据文件读，不下发给浏览器，也不写进日志。
+  2. Key 只从环境变量 / config.yaml / DSH 凭据文件读，不下发给浏览器，也不写进日志。
   3. 知识库绝不下发原文：只把整理后的摘要拼进系统提示词。
 """
 import json
@@ -23,6 +23,7 @@ import urllib.error
 import urllib.request
 
 from . import config
+from .config import ai_conf, conf
 
 # ── 知识库 ─────────────────────────────────────────────────────────
 # 白名单：只读这几种文本文件。扫描时跳过 .git / 数据快照 / 上传目录 / 字体等。
@@ -254,11 +255,14 @@ def _key_from_credentials():
 
 
 def api_key():
-    """优先级：LEXIFY_AI_API_KEY > DEEPSEEK_API_KEY > DSH 凭据文件。"""
+    """优先级：LEXIFY_AI_API_KEY > DEEPSEEK_API_KEY > config.yaml 的 ai.api_key > DSH 凭据文件。"""
     for name in ("LEXIFY_AI_API_KEY", "DEEPSEEK_API_KEY"):
         v = (os.environ.get(name) or "").strip()
         if v:
             return v, name
+    v = (conf("ai.api_key") or "").strip()
+    if v and not v.startswith("sk-xxx") and v.lower() not in ("", "none", "null"):
+        return v, "config.yaml"
     v = _key_from_credentials()
     if v:
         return v, "DSH 凭据文件"
@@ -266,17 +270,19 @@ def api_key():
 
 
 def settings():
-    """AI 相关配置；每次现读，改环境变量后不用重启。"""
+    """AI 相关配置；每次现读，改配置文件/环境变量后不用重启（除 Key 缓存在进程内的地方）。"""
     key, key_src = api_key()
-    disabled = (os.environ.get("LEXIFY_AI_DISABLED") or "").lower() in ("1", "true", "yes", "on")
+    ai = ai_conf()
+    disabled = (ai.get("disabled") or
+                (os.environ.get("LEXIFY_AI_DISABLED") or "").lower() in ("1", "true", "yes", "on"))
     return {
         "enabled": bool(key) and not disabled,
         "keySource": key_src,
-        "baseUrl": (os.environ.get("LEXIFY_AI_BASE_URL") or "https://api.deepseek.com").rstrip("/"),
-        "model": os.environ.get("LEXIFY_AI_MODEL") or "deepseek-flash",
-        "timeout": float(os.environ.get("LEXIFY_AI_TIMEOUT") or 90),
+        "baseUrl": (os.environ.get("LEXIFY_AI_BASE_URL") or ai["base_url"]).rstrip("/"),
+        "model": os.environ.get("LEXIFY_AI_MODEL") or ai["model"],
+        "timeout": float(os.environ.get("LEXIFY_AI_TIMEOUT") or ai["timeout"]),
         # 关掉思考模式：客服场景要的是快和稳，不是推理链。
-        "thinking": (os.environ.get("LEXIFY_AI_THINKING") or "off").lower(),
+        "thinking": (os.environ.get("LEXIFY_AI_THINKING") or ai["thinking"]).lower(),
     }
 
 
@@ -357,8 +363,8 @@ class ChatClient(object):
     def _request(self, messages, stream):
         key = self.cfg.get("key") or ""
         if not key:
-            raise AiError("服务端没有配置 API Key（LEXIFY_AI_API_KEY / DEEPSEEK_API_KEY），"
-                          "AI 咨询暂时不可用。", 503)
+            raise AiError("服务端没有配置 API Key（config.yaml 的 ai.api_key，"
+                          "或环境变量 LEXIFY_AI_API_KEY），AI 咨询暂时不可用。", 503)
         req = urllib.request.Request(
             self.cfg["baseUrl"] + "/chat/completions",
             data=self._body(messages, stream),

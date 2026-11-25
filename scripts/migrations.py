@@ -83,6 +83,45 @@ CREATE TABLE IF NOT EXISTS court_coverage (
 MIGRATIONS.append((3, _v3_courts))
 
 
+def _v4_analytics(conn):
+    """v4：新增访问统计表 page_views（后台「访问分析」页用）。
+
+    纯新增表，不动既有表，所以老库补这一张就够了；新库在 schema.sql 里直接建。
+    """
+    conn.executescript("""
+CREATE TABLE IF NOT EXISTS page_views (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    vid         TEXT NOT NULL,
+    ts          INTEGER NOT NULL,
+    day         TEXT NOT NULL,
+    hour        INTEGER NOT NULL,
+    path        TEXT NOT NULL,
+    query       TEXT,
+    kw          TEXT,
+    title       TEXT,
+    referrer    TEXT,
+    ref_host    TEXT,
+    ref_kind    TEXT,
+    ua          TEXT,
+    browser     TEXT,
+    os          TEXT,
+    device      TEXT,
+    ip_hash     TEXT,
+    sid         TEXT,
+    dwell_ms    INTEGER DEFAULT 0,
+    is_bot      INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_pv_ts   ON page_views(ts);
+CREATE INDEX IF NOT EXISTS idx_pv_day  ON page_views(day);
+CREATE INDEX IF NOT EXISTS idx_pv_path ON page_views(path);
+CREATE INDEX IF NOT EXISTS idx_pv_sid  ON page_views(sid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_vid ON page_views(vid);
+""")
+
+
+MIGRATIONS.append((4, _v4_analytics))
+
+
 def migrate(conn, target_version: int) -> list[str]:
     """把 conn 套用到 target_version。返回已应用的迁移说明（用于日志）。"""
     applied = []

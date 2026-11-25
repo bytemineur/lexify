@@ -1,0 +1,221 @@
+/* ============================================================
+   控制台样式（admin.css）
+   ------------------------------------------------------------
+   这里不重新发明设计系统：颜色、字体、发丝线、方角全部来自
+   style.css + millennium.css（html[data-mlp]）。本文件只补
+   后台独有的布局件：页头下的分区、数据表、横条、时段柱、
+   表单控件、告警条。
+
+   所以规则一律带 html[data-mlp] 前缀，并且只在 /admin 页面加载。
+   ============================================================ */
+
+/* ── 顶栏右侧 ───────────────────────────────────── */
+html[data-mlp] .topbar-right {
+  display: flex; align-items: center; gap: 26px; margin-left: auto;
+}
+html[data-mlp] .topbar-right a {
+  font-size: 15px; color: var(--blue-56); text-decoration: none;
+  transition: color .14s ease;
+}
+html[data-mlp] .topbar-right a:hover { color: var(--blue); }
+html[data-mlp] .topbar-right a.flag { color: #A8461F; }
+
+/* 页签选中态：和前台 nav 一致，只是多一条下划线 */
+html[data-mlp] .nav a.on { color: var(--blue); box-shadow: inset 0 -2px 0 var(--blue); }
+
+/* 主区留白：页脚不要贴着内容 */
+html[data-mlp] .adm-main { padding: 8px 0 96px; }
+html[data-mlp] .foot-brand strong { color: var(--blue); }
+html[data-mlp] .bhead-meta { margin-top: 20px; }
+
+/* ── 页头下的分区 ───────────────────────────────── */
+html[data-mlp] .asec {
+  padding: 44px 0 8px;
+  border-top: 1px solid var(--blue-18);
+}
+html[data-mlp] .asec:first-of-type { border-top: 0; padding-top: 8px; }
+html[data-mlp] .asec-h {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; margin-bottom: 24px;
+}
+html[data-mlp] .asec-h h2 {
+  margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text);
+}
+html[data-mlp] .asec-h .hint { margin: 7px 0 0; font-size: 15px; color: var(--blue-56); }
+html[data-mlp] .asec-h .tag { font-size: 13px; color: var(--blue-56); white-space: nowrap; }
+
+/* 两列：靠间距分开，仍然保留 1px 发丝线 */
+html[data-mlp] .agrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 56px; }
+html[data-mlp] .agrid > .asec { border-top: 1px solid var(--blue-18); padding-top: 36px; }
+@media (max-width: 900px) {
+  html[data-mlp] .agrid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
+/* 区间切换：三个方角小块，选中蓝底白字 */
+html[data-mlp] .seg {
+  display: inline-flex; border: 1px solid var(--blue-18); background: #fff;
+}
+html[data-mlp] .seg a {
+  padding: 6px 14px; font-size: 13.5px; color: var(--blue-56);
+  text-decoration: none; border-left: 1px solid var(--blue-18);
+  font-variant-numeric: tabular-nums;
+}
+html[data-mlp] .seg a:first-child { border-left: 0; }
+html[data-mlp] .seg a:hover { color: var(--blue); }
+html[data-mlp] .seg a.on { background: var(--blue); color: #fff; }
+
+/* ── KPI ───────────────────────────────────────── */
+html[data-mlp] .kpis {
+  grid-template-columns: repeat(var(--kn, 4), minmax(0, 1fr));
+  border-top: 1px solid var(--blue-18);
+}
+html[data-mlp] .kpis.k5 { --kn: 5; }
+html[data-mlp] .kpis.k6 { --kn: 6; }
+html[data-mlp] .kpis .kpi { padding: 22px 20px 24px 0; }
+html[data-mlp] .kpis .kpi b { font-size: 38px; line-height: 1.1; }
+html[data-mlp] .kpis .kpi span { display: block; margin-top: 8px; font-size: 13.5px; color: var(--blue-56); }
+html[data-mlp] .kpis .kpi .d { display: block; margin-top: 3px; font-size: 12.5px; font-style: normal; color: var(--blue-56); opacity: .85; }
+html[data-mlp] .kpis .kpi.hot b { color: var(--blue); }
+html[data-mlp] .kpis .kpi.hot::after { content: ""; display: block; }
+@media (max-width: 900px) {
+  html[data-mlp] .kpis, html[data-mlp] .kpis.k5, html[data-mlp] .kpis.k6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  html[data-mlp] .kpis .kpi { border-left: 1px solid var(--blue-18); padding-left: 16px; }
+  html[data-mlp] .kpis .kpi:nth-child(odd) { border-left: 0; padding-left: 0; }
+  html[data-mlp] .kpis .kpi:nth-child(n+3) { border-top: 1px solid var(--blue-18); }
+}
+
+/* ── 表格 ──────────────────────────────────────── */
+html[data-mlp] .atbl { width: 100%; border-collapse: collapse; font-size: 15px; }
+html[data-mlp] .atbl th {
+  padding: 0 18px 11px 0; border-bottom: 1px solid var(--blue-18);
+  font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--blue-56); text-align: left; white-space: nowrap;
+}
+html[data-mlp] .atbl td {
+  padding: 13px 18px 13px 0; border-bottom: 1px solid var(--blue-18);
+  color: var(--text-2); vertical-align: baseline;
+}
+html[data-mlp] .atbl td:first-child { color: var(--text); }
+html[data-mlp] .atbl tr:last-child td { border-bottom: 0; }
+html[data-mlp] .atbl .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+html[data-mlp] .atbl .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13.5px; }
+html[data-mlp] .atbl.wide { table-layout: fixed; }
+html[data-mlp] .atbl.wide th:nth-child(1), html[data-mlp] .atbl.wide td:nth-child(1) { width: 16%; }
+html[data-mlp] .atbl.wide th:nth-child(2), html[data-mlp] .atbl.wide td:nth-child(2) { width: 42%; }
+html[data-mlp] .atbl.wide th:nth-child(3), html[data-mlp] .atbl.wide td:nth-child(3) { width: 18%; }
+html[data-mlp] .atbl.wide th:nth-child(4), html[data-mlp] .atbl.wide td:nth-child(4) { width: 14%; }
+html[data-mlp] .atbl.wide th:nth-child(5), html[data-mlp] .atbl.wide td:nth-child(5) { width: 10%; text-align: right; }
+html[data-mlp] .atbl.wide td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-mlp] .atbl-wrap { overflow-x: auto; }
+
+/* ── 横条 ──────────────────────────────────────── */
+html[data-mlp] .abars { display: flex; flex-direction: column; gap: 15px; }
+html[data-mlp] .abrow {
+  display: grid; grid-template-columns: minmax(84px, 32%) minmax(0, 1fr) 68px;
+  gap: 18px; align-items: center; font-size: 15px;
+}
+html[data-mlp] .abname { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-mlp] .abtrack { position: relative; height: 3px; background: var(--blue-10); }
+html[data-mlp] .abfill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--blue); }
+html[data-mlp] .abval { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+
+/* ── 时段柱 ────────────────────────────────────── */
+html[data-mlp] .ahours {
+  display: flex; align-items: flex-end; gap: 5px; height: 104px;
+  border-bottom: 1px solid var(--blue-18);
+}
+html[data-mlp] .ahours i { flex: 1; min-height: 2px; background: var(--blue-10); }
+html[data-mlp] .ahours i.p { background: var(--blue); }
+html[data-mlp] .ahours-x {
+  display: flex; justify-content: space-between; margin-top: 10px;
+  font-size: 12px; color: var(--blue-56); font-variant-numeric: tabular-nums;
+}
+
+/* ── 折线图 ────────────────────────────────────── */
+html[data-mlp] .achart { display: block; width: 100%; height: auto; }
+html[data-mlp] .achart .g { stroke: var(--blue-18); stroke-width: 1; }
+html[data-mlp] .achart .axis {
+  fill: var(--blue-56); font-family: var(--font-sans); font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+html[data-mlp] .achart .pv { fill: none; stroke: var(--blue); stroke-width: 2; stroke-linejoin: round; }
+html[data-mlp] .achart .uv { fill: none; stroke: var(--blue-56); stroke-width: 1.4; stroke-dasharray: 5 4; opacity: .75; }
+html[data-mlp] .achart .dot { fill: var(--blue); }
+html[data-mlp] .alegend {
+  display: flex; gap: 26px; margin-top: 18px; font-size: 13.5px; color: var(--blue-56);
+}
+html[data-mlp] .alegend i { display: inline-block; width: 18px; height: 2px; margin-right: 8px; vertical-align: middle; background: var(--blue); }
+html[data-mlp] .alegend i.u { background: none; border-top: 2px dashed var(--blue-56); height: 0; }
+
+/* ── 表单与按钮 ────────────────────────────────── */
+html[data-mlp] .arow { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 16px; }
+html[data-mlp] .abtn {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 20px;
+  border: 1px solid var(--blue-18); background: #fff; color: var(--text);
+  font: inherit; font-size: 15px; cursor: pointer; border-radius: 0;
+  transition: border-color .14s ease, color .14s ease, background-color .14s ease;
+}
+html[data-mlp] .abtn:hover { border-color: var(--blue); color: var(--blue); }
+html[data-mlp] .abtn.p { background: var(--blue); border-color: var(--blue); color: #fff; }
+html[data-mlp] .abtn.p:hover { background: #0F28A8; border-color: #0F28A8; color: #fff; }
+html[data-mlp] .afield {
+  height: 40px; padding: 0 12px; border: 1px solid var(--blue-18); background: #fff;
+  font: inherit; font-size: 15px; color: var(--text); border-radius: 0;
+}
+html[data-mlp] .afield:focus { outline: 0; border-color: var(--blue); }
+html[data-mlp] input[type=file].afield { padding: 8px 10px; height: auto; }
+
+/* ── 告警与提示 ────────────────────────────────── */
+html[data-mlp] .anotice {
+  margin: 0 0 28px; padding: 16px 20px; border-left: 2px solid var(--warn);
+  background: #FDFAF2; font-size: 15px; line-height: 1.7; color: var(--text-2);
+}
+html[data-mlp] .anotice b { color: #8A5A00; }
+html[data-mlp] .anotice.bad { border-left-color: var(--danger); background: #FDF5F4; }
+html[data-mlp] .anotice.bad b { color: #A8322A; }
+html[data-mlp] .anotice code { background: #fff; }
+html[data-mlp] .pill {
+  position: static; display: inline-block; margin: 0 10px 0 0; padding: 1px 9px;
+  border: 1px solid var(--blue-18); color: var(--blue); font-size: 12.5px;
+}
+html[data-mlp] .aempty { padding: 14px 0 4px; font-size: 15px; color: var(--blue-56); }
+html[data-mlp] pre {
+  margin: 16px 0 0; padding: 18px 20px; background: #0B0D10; color: #DDE3F0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 13px; line-height: 1.7; overflow: auto; max-height: 440px; border-radius: 0;
+}
+html[data-mlp] pre code { background: none; border: 0; padding: 0; }
+html[data-mlp] .asec .sub { margin: 0 0 16px; font-size: 15px; color: var(--blue-56); }
+html[data-mlp] .akv { width: 100%; border-collapse: collapse; font-size: 15px; }
+html[data-mlp] .akv th {
+  width: 26%; padding: 12px 18px 12px 0; border-bottom: 1px solid var(--blue-18);
+  text-align: left; font-weight: 400; color: var(--blue-56); vertical-align: baseline;
+}
+html[data-mlp] .akv td {
+  padding: 12px 0; border-bottom: 1px solid var(--blue-18); color: var(--text); vertical-align: baseline;
+}
+html[data-mlp] .akv tr:last-child th, html[data-mlp] .akv tr:last-child td { border-bottom: 0; }
+
+/* ── 窄屏：顶栏换成两行，页签不能被藏掉 ───────────── */
+@media (max-width: 900px) {
+  html[data-mlp] .topbar {
+    height: auto; flex-wrap: wrap; align-items: center;
+    padding: 12px 20px 0; backdrop-filter: none;
+  }
+  html[data-mlp] .topbar .nav {
+    display: flex !important; order: 3; width: 100%; height: auto;
+    gap: 0; padding: 10px 0 2px; overflow-x: auto; white-space: nowrap;
+  }
+  html[data-mlp] .topbar .nav a { height: auto; padding: 4px 0; font-size: 15px; }
+  html[data-mlp] .topbar .nav a::after { margin: 0 10px; }
+  html[data-mlp] .topbar .nav a.on { box-shadow: inset 0 -2px 0 var(--blue); }
+  html[data-mlp] .topbar-right { gap: 18px; }
+  html[data-mlp] .topbar-right a { font-size: 14px; }
+  html[data-mlp] .bhead-in { padding: 32px 0 22px; }
+  html[data-mlp] .bhead h1 { font-size: 32px; }
+  html[data-mlp] .asec { padding-top: 34px; }
+  html[data-mlp] .asec-h h2 { font-size: 19px; }
+}

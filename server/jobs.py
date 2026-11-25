@@ -18,6 +18,9 @@ LAST_UPDATE_FILE = os.path.join(ROOT, "data", "last_update.txt")
 JOB = {"running": False, "label": "", "started": "", "ended": "", "ok": None, "log": []}
 JOB_MAX_LINES = 400
 
+# 定时任务是否真的在这个进程里跑起来（后台页要显示真实状态，而不是配置里写了什么）
+SCHEDULER = {"on": False, "at": ""}
+
 
 def sh(args, timeout=1800):
     try:
@@ -79,6 +82,8 @@ def run_update():
 
 
 def start_scheduler(at):
+    SCHEDULER.update(on=True, at=at)
+
     def loop():
         while True:
             nxt = next_run(at)

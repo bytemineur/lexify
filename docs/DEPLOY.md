@@ -45,14 +45,21 @@ python3 scripts/manage.py init         # 建库（第一次；跳过也行，add
 python3 main.py                  # → http://<服务器>:8010/
 ```
 
+第一次部署建议先建一份配置（不改也能跑，全走默认值）：
+
+```bash
+cp config.example.yaml config.yaml
+vim config.yaml                  # 至少看一眼 server.port / ai.api_key
+```
+
 | 地址 | 是什么 | 谁能进 |
 |---|---|---|
 | `http://<服务器>:8010/` | 站点 | 所有人 |
-| `http://<服务器>:8010/admin` | 管理后台 | 本机直连，或带口令 |
+| `http://<服务器>:8010/admin` | 管理后台（含访问分析） | 本机直连，或带口令 |
 | `http://<服务器>:8010/docs` | 项目文档 | 所有人 |
 
-> 端口全项目只有 **8010** 一个默认值：`main.py` 的默认参数、文档、示例命令都按这个写。
-> 要换端口只改一处——启动时加 `--port`，或设环境变量 `LEXIFY_PORT`。
+> 端口全项目只有 **8010** 一个默认值：`server.port`、启动参数、文档、示例命令都按这个写。
+> 要换端口只改一处——`config.yaml` 的 `server.port`、启动时加 `--port`，或设环境变量 `LEXIFY_PORT`。
 >
 > **别用 `sudo` 跑**：`sudo python3 main.py` 会让 `data/` 里所有文件属主变成 root，
 > 之后普通用户再跑就只剩 `attempt to write a readonly database`（见 §10 排错）。
@@ -118,6 +125,9 @@ User=ubuntu
 WorkingDirectory=/home/ubuntu/lexify
 Environment=LEXIFY_ADMIN_TOKEN=换成一段随机字符
 Environment=GITHUB_TOKEN=ghp_xxxx
+# LLM Key 两条路，二选一（都配时环境变量优先）：
+#   ① 直接写在服务器上的 config.yaml：ai.api_key: "sk-…"（推荐，改动不用动 unit 文件）
+#   ② 或在这里加一行 Environment=LEXIFY_AI_API_KEY=sk-…
 # 用 conda 环境里的解释器绝对路径；systemd 不读 ~/.bashrc，也没有 activate
 ExecStart=/home/ubuntu/anaconda3/envs/lexify/bin/python main.py --port 8010 --at 00:30
 Restart=always
@@ -135,7 +145,12 @@ sudo journalctl -u lexify -f          # 站点日志 + 定时任务输出都在�
 ```
 
 `WorkingDirectory` 必须是仓库根目录——脚本里所有路径都相对它解析。
+配置从那里的 `config.yaml` 读（模板 `config.example.yaml`），改完 `systemctl restart lexify` 生效。
 `User` 要和 `data/` 的属主一致，否则后台写入会 `readonly`（§10 第 1 行）。
+
+> 服务器上没写 `config.yaml` 也能跑：全部走默认值（端口 8010、绑 0.0.0.0、每天 00:30 更新）。
+> 想确认当前进程读的是哪个文件、AI 有没有生效，看启动日志的 `配置：` / `AI 咨询：` 两行，
+> 或直接 `curl -s 127.0.0.1:8010/api/ai/status`。
 
 ---
 
