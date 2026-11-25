@@ -203,3 +203,10 @@ html[data-mlp] .sub-page .foot { margin-top: 72px; }
   html[data-mlp] .sub-body { padding-top: 28px; font-size: 15.5px; }
   html[data-mlp] .sub-body h2 { font-size: 20px; margin-top: 36px; padding-top: 24px; }
 }
+
+/* 条款编号：加粗 + 固定宽度，避免 1.1 被读成 11 */
+html[data-mlp] .sub-body .num {
+  display: inline-block; min-width: 2.6em;
+  font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}

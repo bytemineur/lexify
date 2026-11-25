@@ -27,7 +27,7 @@ macOS / Windows 跳过前两步（装 Anaconda 或 Miniconda 即可），从 `co
 ### 1.2 代码与依赖
 
 ```bash
-git clone https://github.com/bytemineur/lexify.git
+git clone <你的代码仓库地址>     # 私有仓库请先配置访问凭据
 cd lexify
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```

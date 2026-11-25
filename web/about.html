@@ -51,7 +51,7 @@
     <div class="wrap">
       <p class="sub-kicker"><span class="dot"></span>关于 · ABOUT</p>
       <h1 class="sub-title">把公开的公告，<span class="hl">整理成能查的东西</span>。</h1>
-      <p class="sub-meta">版本 v1.0 · 2026 年 11 月 25 日 · 一个个人项目，代码在 GitHub</p>
+      <p class="sub-meta">版本 v1.0 · 2026 年 11 月 25 日 · 由深圳易诉达法律服务有限公司运营</p>
     </div>
   </section>
 
@@ -95,14 +95,14 @@
     </div>
 
     <h2>怎么做的</h2>
-    <p>一个 Python 进程 + 一个 SQLite 库，前端是纯静态页面，没有前端框架。采集器在仓库的 <code>collectors/</code> 下，按站点配置抓取、正则与选择器抽取，再统一入库；导出脚本把库里的数据烤成前端读的快照。AI 咨询调用 DeepSeek 的模型，Key 只存在服务端，浏览器拿不到。</p>
+    <p>一个 Python 进程 + 一个 SQLite 库，前端是纯静态页面，没有前端框架。采集器按站点配置抓取、用正则与选择器抽取，再统一入库；导出脚本把库里的数据生成前端读取的快照。AI 咨询调用 DeepSeek 的模型，Key 只存在服务端，浏览器拿不到。</p>
 
     <h2>边界</h2>
     <p>数据来自公开渠道，抽取由程序完成，<strong>可能有错，也可能不全</strong>：字段识别会失败，部分站点有反爬与分页上限，公告本身也可能撤回。所以它是一个检索与线索工具 —— 涉及投标、应诉、申请执行等正式场合，请回到原始公告逐字核对。</p>
     <p>本站不提供法律意见，也不代理案件。完整的服务口径见<a href="terms.html">用户协议</a>，数据与统计口径见<a href="privacy.html">隐私政策</a>。</p>
 
     <h2>联系</h2>
-    <p>数据纠错、功能建议、合作，都可以提到 GitHub 仓库的 issue：<a href="https://github.com/bytemineur/lexify/issues" target="_blank" rel="noopener noreferrer">github.com/bytemineur/lexify/issues</a>。涉及侵权的内容，请附上原公告链接与权利证明。</p>
+    <p>数据纠错、功能建议与合作，欢迎发送邮件至 <a href="mailto:service@yisuda.example">service@yisuda.example</a>。涉及著作权等权利主张的，请附上原公告链接与权利证明。</p>
 
     <p class="sub-note">一句话：这是个检索工具，把散落在各个官网的公告收拢到一处，方便你先看全局，再去核对原文。</p>
 
