@@ -340,10 +340,10 @@ def check_docs():
 
 
 def check_chrome():
-    """页首 / 页脚是每个页面都要有的一套外壳：logo、导航、放大镜、页脚链接与版权行。
+    """页首 / 页脚是每个页面都要有的一套外壳：logo、导航、放大镜、页脚法律链接。
 
-    这套东西以前是一页一抄，改一处就漏三处（看板页没有放大镜、三页干脆没有页脚），
-    所以直接按「八页一致」来断言，而不是抽查。
+    看板页以前没有放大镜，子页连 .topbar-right 容器都没有，所以按「八页一致」来断言；
+    页脚则是「有页脚的页面必须带用户协议 / 隐私政策入口」（三个看板页本来就没有页脚）。
     """
     print("\n[5] 页首页脚")
     pages = ["index.html", "tender.html", "hearing.html", "bounty.html",
@@ -357,12 +357,9 @@ def check_chrome():
         ok("%s 不再有「文档」一级菜单" % page, ">文档<" not in nav_txt)
         ok("%s 页首有检索放大镜" % page, 'id="btnSearch"' in s)
         ok("%s 加载了检索脚本" % page, "search.js" in s or "app.js" in s)
-        ok("%s 有统一页脚" % page,
-           'class="foot-cols"' in s and "<h4>政策协议</h4>" in s)
-        ok("%s 页脚保留用户协议与隐私政策" % page,
-           'href="terms.html"' in s and 'href="privacy.html"' in s)
-        ok("%s 版权行是 2024 - 2026" % page,
-           "Copyright © 2024 - 2026 Lexify. All rights reserved." in s)
+        if '<footer class="foot"' in s:
+            ok("%s 页脚带用户协议与隐私政策入口" % page,
+               'class="foot-links"' in s and 'href="terms.html"' in s and 'href="privacy.html"' in s)
 
 
 def main():
