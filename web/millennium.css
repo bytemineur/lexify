@@ -132,7 +132,8 @@ html[data-mlp] .topbar {
   background: var(--nav-bg);
   backdrop-filter: saturate(140%) blur(10px);
   -webkit-backdrop-filter: saturate(140%) blur(10px);
-  border-bottom: 0;
+  /* 与页面其他发丝线（.bhead / .sub-head / .foot）同一根 1px --blue-18 */
+  border-bottom: 1px solid var(--blue-18);
 }
 /* 品牌贴左、导航居中、右侧工具贴右（三栏等分，中间列始终居中） */
 @media (min-width: 901px) {
