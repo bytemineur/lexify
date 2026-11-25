@@ -17,7 +17,7 @@
   right: 24px;
   bottom: 24px;
   z-index: 70;                 /* 高于顶栏 40/50，低于检索浮层 90 与看板弹窗 100 */
-  font-family: var(--font-sans, "Instrument Sans", "Noto Sans SC", -apple-system, sans-serif);
+  font-family: var(--font-sans, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif);
   color: var(--text, #14171a);
 }
 

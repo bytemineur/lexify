@@ -22,6 +22,9 @@
    - Instrument Sans：英文与数字（拉丁）
    - Noto Sans SC    ：中文标题与正文（子集了 UI + 数据里出现的 3,113 个汉字）
    两个字体都是 SIL OFL 许可，可随源码分发。 */
+/* 自托管字体已停用（首屏换字会闪一下，改成系统字体栈）。
+   woff2 仍留在 web/fonts/，要恢复就把下面这段注释去掉、并把 --font-sans 改回
+   "Instrument Sans", "Noto Sans SC", …
 @font-face {
   font-family: "Instrument Sans";
   src: url("./fonts/InstrumentSans-Regular.woff2") format("woff2");
@@ -42,6 +45,7 @@
   src: url("./fonts/NotoSansSC-600-subset.woff2") format("woff2");
   font-weight: 600; font-style: normal; font-display: swap;
 }
+*/
 
 /* ── 1. 令牌 ─────────────────────────────────────── */
 html[data-mlp] {
@@ -81,8 +85,9 @@ html[data-mlp] {
   --shadow-lg: none;
   --raised: none;
 
-  --font-sans: "Instrument Sans", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB",
-               "Microsoft YaHei", -apple-system, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC",
+               "Noto Sans SC", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* 夜间：同一套蓝反印成夜蓝 */
