@@ -817,3 +817,17 @@ html[data-mlp] .btabs a.on {
   html[data-mlp] .topbar > .nav a,
   html[data-mlp] .topbar > .btabs a { height: auto; padding: 4px 0; font-size: 15px; }
 }
+
+/* 顶栏登录按钮（登录页与所有页面共用） */
+/* 顶栏上的登录按钮：和其它导航项同字号，登录后显示手机号 */
+html[data-mlp] .nav-login {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 15px; color: var(--blue); text-decoration: none;
+  border: 1px solid var(--blue); padding: 4px 12px; margin-left: 18px;
+  white-space: nowrap;
+}
+html[data-mlp] .nav-login:hover { background: var(--blue); color: #fff; }
+html[data-mlp] .nav-login.is-user {
+  border-color: var(--blue-18); color: var(--blue-56); margin-left: 12px;
+}
+html[data-mlp] .nav-login.is-user:hover { border-color: var(--blue); color: var(--blue); background: #fff; }

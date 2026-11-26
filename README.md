@@ -324,6 +324,50 @@ crawl:
 
 ---
 
+## 短信登录
+
+「产品」下拉里的五个看板默认要登录才能看：未登录访问 `tender.html` / `hearing.html` /
+`bounty.html` / `falseclaim.html` / `labor.html` 会被 302 到 `login.html?next=…`，
+对应的 `/api/data/board/*` 返回 401 `{"error":"login_required"}`。首页、定价、关于、
+用户协议、隐私政策、`/admin` 保持公开（后台另有自己的口令）。
+
+登录方式是手机号 + 短信验证码，走腾讯云短信 `SendSms`（2021-01-11 版本，纯标准库签名，
+不引 SDK）。在 `config.yaml` 填这一节就能真发短信：
+
+```yaml
+sms:
+  secret_id: ""        # 腾讯云 SecretId
+  secret_key: ""       # 腾讯云 SecretKey
+  sdk_app_id: ""       # 短信控制台 → 应用管理 → SdkAppId（形如 1400000000）
+  sign_name: ""        # 短信控制台 → 签名管理，比如「深圳易诉达法律服务有限公司」
+  template_id: ""      # 模板 ID，正文里用 {1} 当验证码变量
+  region: ap-guangzhou
+```
+
+五个值缺任意一个，`/api/auth/send-code` 会返回 503 `sms_not_configured`（不会静默失败）。
+本地调试不想配短信可以设 `auth.dev_mode: true`（或环境变量 `LEXIFY_AUTH_DEV=1`），
+接口会把验证码直接放在响应的 `devCode` 字段里、页面也会显示出来 —— **公网不要开**。
+
+行为细节：
+
+| 项 | 默认值 | 变量 / 配置 |
+| --- | --- | --- |
+| 看板是否需要登录 | 开 | `auth.enabled` / `LEXIFY_AUTH=0` 可整体关掉 |
+| 验证码有效期 | 300 秒 | `auth.code_ttl` / `LEXIFY_AUTH_CODE_TTL` |
+| 同号重发间隔 | 60 秒 | `auth.resend_seconds` / `LEXIFY_AUTH_RESEND` |
+| 同号每天上限 | 10 次 | `auth.daily_per_phone` / `LEXIFY_AUTH_DAILY` |
+| 登录状态保留 | 30 天 | `auth.session_days` / `LEXIFY_AUTH_SESSION_DAYS` |
+| 同 IP 每小时发码 | 20 次 | `LEXIFY_AUTH_SEND_PER_HOUR` |
+| 调试模式 | 关 | `auth.dev_mode` / `LEXIFY_AUTH_DEV=1` |
+
+接口：`POST /api/auth/send-code {phone}` → `{ok, phone, resendIn, devCode?}`；
+`POST /api/auth/login {phone, code}` → 200 + `Set-Cookie: lexify_login=…`；
+`POST /api/auth/logout`；`GET /api/auth/me` → `{loggedIn, phone, loginRequired, smsReady, devMode}`。
+
+库里只存哈希：验证码存 `sha256(盐|手机号|验证码)`，会话存 `sha256(盐|session|token)`，
+手机号本身需要存（不然没法判断同一个号的重发间隔），Cookie 是 HttpOnly + SameSite=Lax。
+登录页在 `web/login.html`，顶栏那个「登录 / 138****8000 · 退出」按钮由 `web/auth.js` 维护。
+
 ## 数据怎么来
 
 采集器在 `collectors/` 里，三个采集器已经并进来（不再依赖外部仓库）。

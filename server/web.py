@@ -27,6 +27,9 @@ import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from . import accounts as acctmod
+from . import sms as smsmod
+from . import config
 from . import ai as aimod
 from . import analytics as anamod
 from . import auth as authmod
@@ -34,7 +37,8 @@ from . import admin as adminmod
 from . import data as datamod
 from . import docs as docsmod
 from . import jobs as jobsmod
-from .config import ADMIN_COOKIE, CLIENT_GONE, COMPRESSIBLE, MIME, UPLOAD_DIR, WEB, DB
+from .config import (ADMIN_COOKIE, CLIENT_GONE, COMPRESSIBLE, MIME, UPLOAD_DIR, WEB, DB,
+                     auth_conf, sms_ready)
 
 # 上传体上限（默认 32 MB）：没上限会让恶意请求灌满磁盘/内存。
 MAX_UPLOAD_BYTES = int(os.environ.get("LEXIFY_MAX_UPLOAD", str(32 * 1024 * 1024)))
@@ -61,6 +65,42 @@ TRACK_MAX_BODY = 4 * 1024
 TRACK_RATE_PER_MIN = int(os.environ.get("LEXIFY_TRACK_RATE", "120"))
 _track_hits = {}
 _track_lock = threading.Lock()
+
+# 短信登录：哪些页面属于「产品」、必须登录才能看；发送验证码的每 IP 限额。
+BOARD_PAGES = ("/tender.html", "/hearing.html", "/bounty.html",
+               "/falseclaim.html", "/labor.html")
+AUTH_MAX_BODY = 2 * 1024
+SEND_RATE_PER_HOUR = int(os.environ.get("LEXIFY_AUTH_SEND_PER_HOUR", "20"))
+_send_hits = {}
+_send_lock = threading.Lock()
+
+
+def send_allow(ip):
+    """发送验证码的每 IP 每小时限额（手机号维度另有一层）。"""
+    now = time.time()
+    with _send_lock:
+        bucket = [t for t in _send_hits.get(ip, []) if now - t < 3600]
+        if len(bucket) >= SEND_RATE_PER_HOUR:
+            _send_hits[ip] = bucket
+            return False
+        bucket.append(now)
+        _send_hits[ip] = bucket
+        if len(_send_hits) > 2000:
+            for k in [k for k, v in _send_hits.items() if not v or now - v[-1] > 7200]:
+                _send_hits.pop(k, None)
+    return True
+
+
+def auth_required():
+    """站点是否要求登录才能看看板。"""
+    return config.auth_conf()["enabled"]
+
+
+def current_user(headers):
+    """从 Cookie 里取当前登录用户；没登录返回 None。"""
+    if not auth_required():
+        return None
+    return acctmod.session_of(acctmod.token_from_cookie(headers))
 
 
 def track_allow(ip):
@@ -187,6 +227,22 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ai/status":
             return self._ai_status()
 
+        # 登录状态：前端导航栏靠它决定显示「登录」还是「退出」。
+        if path == "/api/auth/me":
+            return self._auth_me()
+
+        # 「产品」下的看板页面与看板数据接口要登录才能看。
+        # 页面跳登录页（带 next），接口回 401 让前端自己引导。
+        if auth_required() and (path in BOARD_PAGES or path.startswith("/api/data/board/")
+                                or path == "/api/data/tenders"):
+            if not current_user(self.headers):
+                if path.startswith("/api/"):
+                    return self._json(401, {"error": "login_required"})
+                nxt = urllib.parse.quote(self.path, safe="")
+                return self._send(302, "", "text/plain; charset=utf-8",
+                                  {"Location": "/login.html?next=" + nxt,
+                                   "Cache-Control": "no-store"})
+
         # 实时数据接口：页面直接读库，不经过静态快照
         if path.startswith("/api/data/"):
             return self._data_api(path, urllib.parse.urlparse(self.path).query)
@@ -287,6 +343,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _do_POST(self):
         path = urllib.parse.urlparse(self.path).path
+        if path.startswith("/api/auth/"):
+            return self._auth_post(path)
         if path.startswith("/api/ai/"):
             return self._ai_post(path)
         if path == "/api/track":
@@ -358,7 +416,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
     # ---------- AI 咨询 ----------
-    def _json(self, code, obj):
+    def _json(self, code, obj, extra=None):
         """返回 JSON。大响应会 gzip。
 
         为什么要压：看板接口一次下发几 MB（招标约 4.7 MB），服务器上带宽只有
@@ -370,6 +428,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         headers = {"Cache-Control": "no-store"}
+        headers.update(extra or {})
         accepts_gzip = "gzip" in (self.headers.get("Accept-Encoding") or "")
         if accepts_gzip and len(data) >= 1024:
             data = gzip.compress(data, 6)
@@ -382,6 +441,100 @@ class Handler(BaseHTTPRequestHandler):
         headers = {"Cache-Control": "no-store"}
         headers.update(extra or {})
         return self._send(code, "", "text/plain; charset=utf-8", headers)
+
+    # ---------- 短信登录 ----------
+    def _auth_me(self):
+        user = acctmod.session_of(acctmod.token_from_cookie(self.headers))
+        body = {
+            "loggedIn": bool(user),
+            "phone": user["masked"] if user else "",
+            "loginRequired": auth_required(),
+            "smsReady": sms_ready(),
+            "devMode": bool(config.auth_conf()["dev_mode"]),
+        }
+        return self._json(200, body, extra={"Cache-Control": "no-store"})
+
+    def _read_json_body(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length <= 0 or length > AUTH_MAX_BODY:
+            return None
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8", "replace"))
+        except (ValueError, OSError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def _auth_post(self, path):
+        if not self._same_origin():
+            return self._json(403, {"error": "cross_origin"})
+        ip = self.client_address[0]
+        if path == "/api/auth/send-code":
+            return self._auth_send_code(ip)
+        if path == "/api/auth/login":
+            return self._auth_login(ip)
+        if path == "/api/auth/logout":
+            acctmod.drop_session(acctmod.token_from_cookie(self.headers))
+            return self._no_content(204, {"Set-Cookie": acctmod.clear_cookie()})
+        return self._json(404, {"error": "not_found"})
+
+    def _auth_send_code(self, ip):
+        payload = self._read_json_body() or {}
+        phone = acctmod.normalize_phone(payload.get("phone"))
+        if not phone:
+            return self._json(400, {"error": "bad_phone", "message": "手机号看起来不对"})
+        if not send_allow(ip):
+            return self._json(429, {"error": "too_many", "message": "发送太频繁，稍后再试"})
+        ok, err, code = acctmod.issue_code(phone, ip)
+        if not ok:
+            return self._json(429, {"error": "too_many", "message": err})
+
+        conf = config.auth_conf()
+        if sms_ready():
+            ok2, rid, msg = smsmod.send_code(
+                config.sms_conf()["secret_id"], config.sms_conf()["secret_key"],
+                config.sms_conf()["sdk_app_id"], config.sms_conf()["sign_name"],
+                config.sms_conf()["template_id"], phone, code,
+                region=config.sms_conf()["region"])
+            if not ok2:
+                print("[sms] 发送失败 %s：%s" % (acctmod.mask_phone(phone), msg), flush=True)
+                return self._json(502, {"error": "sms_failed",
+                                        "message": "短信没发出去，稍后再试"})
+            print("[sms] 已发送 %s requestId=%s" % (acctmod.mask_phone(phone), rid), flush=True)
+            body = {"ok": True, "phone": acctmod.mask_phone(phone),
+                    "resendIn": conf["resend_seconds"]}
+            return self._json(200, body, extra={"Cache-Control": "no-store"})
+
+        # 没配短信服务：只有显式开 dev_mode 才把验证码回给前端（本地演示用）
+        if conf["dev_mode"]:
+            print("[sms] 未配置短信服务，dev_mode 验证码 %s → %s"
+                  % (acctmod.mask_phone(phone), code), flush=True)
+            return self._json(200, {"ok": True, "phone": acctmod.mask_phone(phone),
+                                    "resendIn": conf["resend_seconds"],
+                                    "devCode": code, "smsReady": False},
+                              extra={"Cache-Control": "no-store"})
+        print("[sms] 未配置短信服务（sms.secret_id 等），%s 的验证码发不出去"
+              % acctmod.mask_phone(phone), flush=True)
+        return self._json(503, {"error": "sms_not_configured",
+                                "message": "短信服务还没配置，请联系管理员"})
+
+    def _auth_login(self, ip):
+        payload = self._read_json_body() or {}
+        phone = acctmod.normalize_phone(payload.get("phone"))
+        if not phone:
+            return self._json(400, {"error": "bad_phone", "message": "手机号看起来不对"})
+        ok, err = acctmod.verify_code(phone, payload.get("code"))
+        if not ok:
+            return self._json(400, {"error": "bad_code", "message": err})
+        token = acctmod.create_session(phone, ip, self.headers.get("User-Agent") or "")
+        if not token:
+            return self._json(500, {"error": "session_failed", "message": "登录状态没保存下来"})
+        https = (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+        return self._json(200, {"ok": True, "phone": acctmod.mask_phone(phone)},
+                          extra={"Set-Cookie": acctmod.cookie_for(token, https),
+                                 "Cache-Control": "no-store"})
 
     def _track_post(self):
         """前端 track.js 的上报入口。

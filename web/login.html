@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-mlp>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · lexify</title>
+<meta name="description" content="用手机号收一条验证码登录 lexify，登录后可查看招标雷达、开庭公告、执行悬赏、劳动争议、证券虚假陈述五块看板。">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="millennium.css">
+<link rel="stylesheet" href="login.css">
+<link rel="stylesheet" href="ai-chat.css">
+</head>
+<body class="sub-page">
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M7.8 4.4Q7 4.4 7 5.2v13.5h10v-2.2a1.1 1.1 0 0 0-1.1-1.1h-5.7V4.4z" fill="currentColor"/>
+      </svg>
+    </span>
+    <span class="brand-text"><strong>lexify</strong><em>法律数据洞察平台</em></span>
+  </a>
+  <nav class="nav" id="nav">
+    <a href="index.html">首页</a>
+    <a href="pricing.html">定价</a>
+    <a href="about.html">关于</a>
+  </nav>
+  <div class="topbar-right">
+    <a class="nav-login" id="navLogin" href="login.html">登录</a>
+  </div>
+</header>
+
+<main class="login-main">
+  <div class="login-card">
+    <p class="login-kicker">Sign in · 短信登录</p>
+    <h1 class="login-title">登录后看产品</h1>
+    <p class="login-sub">用手机号收一条验证码即可。登录后才能打开招标雷达、开庭公告、执行悬赏、劳动争议、证券虚假陈述这五块看板。</p>
+
+    <form id="loginForm" autocomplete="on" novalidate>
+      <div class="login-field">
+        <label class="login-label" for="phone">手机号</label>
+        <div class="login-phone">
+          <span class="login-prefix">+86</span>
+          <input class="login-input" id="phone" name="phone" type="tel" inputmode="numeric"
+                 maxlength="11" pattern="1[3-9][0-9]{9}" placeholder="11 位手机号" autocomplete="tel"
+                 autofocus required>
+        </div>
+      </div>
+
+      <div class="login-field">
+        <label class="login-label" for="code">验证码</label>
+        <div class="login-code-row">
+          <input class="login-input" id="code" name="code" type="text" inputmode="numeric"
+                 maxlength="6" pattern="[0-9]{6}" placeholder="6 位数字" autocomplete="one-time-code" required>
+          <button class="login-send" id="btnSend" type="button">获取验证码</button>
+        </div>
+      </div>
+
+      <button class="login-btn" id="btnLogin" type="submit">登录</button>
+      <p class="login-msg" id="msg" role="status" aria-live="polite"></p>
+      <p class="login-dev" id="devHint" hidden></p>
+    </form>
+
+    <p class="login-note">
+      验证码 5 分钟内有效，同一个号码 60 秒后才能再次获取。<br>
+      登录即表示同意 <a href="terms.html">用户协议</a> 与 <a href="privacy.html">隐私政策</a>；
+      我们只用你的手机号做登录识别，不发营销短信，也不对外提供。
+    </p>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <a class="foot-brand" href="index.html"><strong>lexify</strong> 法律数据洞察平台</a>
+    <div class="foot-legal">
+      <p class="foot-note">Copyright © 2024 - 2026 Lexify. All rights reserved.</p>
+      <p class="foot-links"><a href="terms.html">用户协议</a><a href="privacy.html">隐私政策</a></p>
+      <a class="foot-icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">粤ICP备2026168850号</a>
+    </div>
+  </div>
+</footer>
+
+<script src="ai-chat.js"></script>
+<script src="auth.js"></script>
+<script src="track.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var phone = $("phone"), code = $("code"), msg = $("msg");
+  var btnSend = $("btnSend"), btnLogin = $("btnLogin"), form = $("loginForm");
+  var timer = null, left = 0;
+
+  var next = new URLSearchParams(location.search).get("next") || "index.html";
+  // 只允许站内相对路径，避免被当成开放重定向
+  if (next.indexOf("//") === 0 || next.indexOf("http") === 0) next = "index.html";
+
+  function say(text, kind) {
+    msg.textContent = text || "";
+    msg.className = "login-msg" + (kind ? " " + kind : "");
+  }
+
+  function validPhone(v) { return /^1[3-9]\d{9}$/.test(v.replace(/\D/g, "")); }
+
+  function tick() {
+    left -= 1;
+    if (left <= 0) {
+      clearInterval(timer);
+      timer = null;
+      btnSend.disabled = false;
+      btnSend.textContent = "重新获取";
+    } else {
+      btnSend.textContent = left + " 秒后重发";
+    }
+  }
+
+  function startCountdown(seconds) {
+    left = seconds || 60;
+    btnSend.disabled = true;
+    btnSend.textContent = left + " 秒后重发";
+    clearInterval(timer);
+    timer = setInterval(tick, 1000);
+  }
+
+  function post(url, payload) {
+    return fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        return { ok: r.ok, status: r.status, body: j };
+      });
+    });
+  }
+
+  // 已经登录过就别停在登录页
+  fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (s) {
+      if (s.loggedIn) { location.replace(next); return; }
+      if (s.loginRequired === false) { location.replace("index.html"); }
+    })
+    .catch(function () {});
+
+  btnSend.addEventListener("click", function () {
+    var v = phone.value.replace(/\D/g, "");
+    if (!validPhone(v)) { say("手机号看起来不对，检查一下", "bad"); phone.focus(); return; }
+    btnSend.disabled = true;
+    say("正在发送…");
+    post("/api/auth/send-code", { phone: v }).then(function (res) {
+      if (res.ok) {
+        say("验证码已发到 " + (res.body.phone || v) + "，5 分钟内有效", "good");
+        startCountdown(res.body.resendIn || 60);
+        code.focus();
+        if (res.body.devCode) {
+          var hint = $("devHint");
+          hint.hidden = false;
+          hint.textContent = "本地调试模式：验证码 " + res.body.devCode + "（生产环境不会显示）";
+          code.value = res.body.devCode;
+        }
+      } else {
+        say(res.body.message || "发送失败，稍后再试", "bad");
+        btnSend.disabled = false;
+      }
+    }).catch(function () {
+      say("网络出问题了，稍后再试", "bad");
+      btnSend.disabled = false;
+    });
+  });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = phone.value.replace(/\D/g, "");
+    var c = code.value.replace(/\D/g, "");
+    if (!validPhone(v)) { say("手机号看起来不对", "bad"); phone.focus(); return; }
+    if (c.length !== 6) { say("验证码是 6 位数字", "bad"); code.focus(); return; }
+    btnLogin.disabled = true;
+    say("正在登录…");
+    post("/api/auth/login", { phone: v, code: c }).then(function (res) {
+      if (res.ok) {
+        say("登录成功，正在跳转…", "good");
+        location.replace(next);
+      } else {
+        say(res.body.message || "验证码不对，或已经过期", "bad");
+        btnLogin.disabled = false;
+        code.focus();
+        code.select();
+      }
+    }).catch(function () {
+      say("网络出问题了，稍后再试", "bad");
+      btnLogin.disabled = false;
+    });
+  });
+
+  phone.addEventListener("input", function () {
+    phone.value = phone.value.replace(/\D/g, "").slice(0, 11);
+  });
+  code.addEventListener("input", function () {
+    code.value = code.value.replace(/\D/g, "").slice(0, 6);
+  });
+})();
+</script>
+</body>
+</html>

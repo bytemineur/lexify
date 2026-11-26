@@ -199,6 +199,38 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_lc_src ON labor_claims(source, source_id);
 MIGRATIONS.append((6, _v6_labor))
 
 
+def _v7_auth(conn):
+    """v7：短信登录的验证码与会话表（老库补建）。"""
+    conn.executescript("""
+CREATE TABLE IF NOT EXISTS sms_codes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone       TEXT NOT NULL,
+    code_hash   TEXT NOT NULL,
+    ip_hash     TEXT,
+    created_at  INTEGER NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    attempts    INTEGER DEFAULT 0,
+    used        INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_sc_phone ON sms_codes(phone, created_at);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash  TEXT NOT NULL UNIQUE,
+    phone       TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    last_seen   INTEGER,
+    ip_hash     TEXT,
+    ua          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_as_phone ON auth_sessions(phone);
+""")
+
+
+MIGRATIONS.append((7, _v7_auth))
+
+
 def migrate(conn, target_version: int) -> list[str]:
     """把 conn 套用到 target_version。返回已应用的迁移说明（用于日志）。"""
     applied = []

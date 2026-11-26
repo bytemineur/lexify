@@ -335,3 +335,29 @@ CREATE INDEX IF NOT EXISTS idx_lc_code ON labor_claims(sec_code);
 CREATE INDEX IF NOT EXISTS idx_lc_date ON labor_claims(ann_date);
 CREATE INDEX IF NOT EXISTS idx_lc_sev ON labor_claims(severity);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_lc_src ON labor_claims(source, source_id);
+
+-- ── 短信登录（v7） ──────────────────────────────────────────────
+-- 验证码只存 sha256(盐|手机号|码)，库里看不到明文；登录会话同理，只存 token 哈希。
+CREATE TABLE IF NOT EXISTS sms_codes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone       TEXT NOT NULL,
+    code_hash   TEXT NOT NULL,
+    ip_hash     TEXT,
+    created_at  INTEGER NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    attempts    INTEGER DEFAULT 0,
+    used        INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_sc_phone ON sms_codes(phone, created_at);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash  TEXT NOT NULL UNIQUE,
+    phone       TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    last_seen   INTEGER,
+    ip_hash     TEXT,
+    ua          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_as_phone ON auth_sessions(phone);

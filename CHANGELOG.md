@@ -6,6 +6,12 @@
 ## [Unreleased]
 
 ### Added
+- **短信登录（腾讯云 SMS）**：`web/login.html` + `web/auth.js` + `web/login.css`；
+  顶栏统一「登录 / 138****8000 · 退出」按钮；「产品」下五个看板页与 `/api/data/board/*`
+  未登录时 302 / 401；新表 `sms_codes`、`auth_sessions`（schema v7，`_v7_auth`）；
+  `server/sms.py` 用标准库实现 TC3-HMAC-SHA256 签名调 `SendSms`，`server/accounts.py`
+  管验证码与会话（只存哈希）；配置项 `sms.*` 与 `auth.*`（含 `dev_mode` 调试开关）；
+  新增 `tests/test_auth_sms.py`（44 项，离线跑签名与验证码逻辑）
 
 - **新增「劳动争议」看板**（`labor.html`）：从巨潮资讯的 IPO 招股说明书全文里抽取「未缴纳 / 未足额缴纳社会保险、住房公积金」的段落，落成 `labor_claims` 表（schema v6）；一条披露一行：公司、板块、欠缴类型、原句摘录、涉及人数与缴纳比例、实际控制人兜底承诺、原文 PDF 链接。采集器 `collectors/labor/fetch.py`（标准库 + pypdf：按标题拉招股书 → 逐页取文 → 按句打分选摘录；PDF 解析优先用 pymupdf，没有则退回 pypdf）；本轮跑近 3 年 279 份招股书，命中 235 家。
 

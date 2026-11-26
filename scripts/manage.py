@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Lexify 数据管理：一个库文件，一条命令。
 
     python scripts/manage.py add 新数据.db        # 去重入库 + 自动重新导出（日常就用这一条）
@@ -167,7 +167,7 @@ def init_db(force=False):
     ensure_schema()
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 def ensure_schema(path=None, quiet=True):

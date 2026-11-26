@@ -273,6 +273,42 @@ def analytics_conf():
     }
 
 
+def sms_conf():
+    """腾讯云短信配置。没有 secret_id / sdk_app_id 时视为「没配短信」。"""
+    return {
+        "secret_id": str(env_or_conf("LEXIFY_SMS_SECRET_ID", "sms.secret_id", "") or ""),
+        "secret_key": str(env_or_conf("LEXIFY_SMS_SECRET_KEY", "sms.secret_key", "") or ""),
+        "sdk_app_id": str(env_or_conf("LEXIFY_SMS_SDK_APP_ID", "sms.sdk_app_id", "") or ""),
+        "sign_name": str(env_or_conf("LEXIFY_SMS_SIGN_NAME", "sms.sign_name", "") or ""),
+        "template_id": str(env_or_conf("LEXIFY_SMS_TEMPLATE_ID", "sms.template_id", "") or ""),
+        "region": str(env_or_conf("LEXIFY_SMS_REGION", "sms.region", "ap-guangzhou")
+                      or "ap-guangzhou"),
+    }
+
+
+def sms_ready():
+    """四个必填项齐了才算配好（region 可省）。"""
+    c = sms_conf()
+    return all(c[k] for k in ("secret_id", "secret_key", "sdk_app_id",
+                              "sign_name", "template_id"))
+
+
+def auth_conf():
+    """短信登录配置。
+
+    enabled   —— 是否要求登录才能看看板（默认 True）
+    dev_mode  —— 没配短信服务时，把验证码直接回给前端（只给本地调试，别在公网开）
+    """
+    return {
+        "enabled": _truthy(env_or_conf("LEXIFY_AUTH", "auth.enabled", True), True),
+        "dev_mode": _truthy(env_or_conf("LEXIFY_AUTH_DEV", "auth.dev_mode", False), False),
+        "code_ttl": int(env_or_conf("LEXIFY_AUTH_CODE_TTL", "auth.code_ttl", 300) or 300),
+        "resend_seconds": int(env_or_conf("LEXIFY_AUTH_RESEND", "auth.resend_seconds", 60) or 60),
+        "daily_per_phone": int(env_or_conf("LEXIFY_AUTH_DAILY", "auth.daily_per_phone", 10) or 10),
+        "session_days": int(env_or_conf("LEXIFY_AUTH_SESSION_DAYS", "auth.session_days", 30) or 30),
+    }
+
+
 def config_summary():
     """启动时打印的一行：配置文件在哪、有没有读到。"""
     if CONFIG_SRC:
