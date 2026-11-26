@@ -500,8 +500,10 @@ class Handler(BaseHTTPRequestHandler):
                 region=config.sms_conf()["region"])
             if not ok2:
                 print("[sms] 发送失败 %s：%s" % (acctmod.mask_phone(phone), msg), flush=True)
+                # 把腾讯云的人话错误带回去：签名没审核、模板不对、号码黑名单
+                # 都靠这句话排查，比笼统的「稍后再试」有用得多。
                 return self._json(502, {"error": "sms_failed",
-                                        "message": "短信没发出去，稍后再试"})
+                                        "message": msg or "短信没发出去，稍后再试"})
             print("[sms] 已发送 %s requestId=%s" % (acctmod.mask_phone(phone), rid), flush=True)
             body = {"ok": True, "phone": acctmod.mask_phone(phone),
                     "resendIn": conf["resend_seconds"]}

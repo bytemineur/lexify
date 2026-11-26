@@ -107,12 +107,36 @@ def send_code(secret_id, secret_key, sdk_app_id, sign_name, template_id, phone, 
     r = (data or {}).get("Response") or {}
     if r.get("Error"):
         err = r["Error"]
-        return False, r.get("RequestId", ""), "%s：%s" % (
-            err.get("Code", "Error"), err.get("Message", ""))
+        return False, r.get("RequestId", ""), _hint(
+            err.get("Code"), err.get("Message"), {"sign": sign_name})
     statuses = r.get("SendStatusSet") or []
     if statuses:
         st = statuses[0]
         if st.get("Code") != "Ok":
-            return False, r.get("RequestId", ""), "%s：%s" % (
-                st.get("Code", "Error"), st.get("Message", ""))
+            return False, r.get("RequestId", ""), _hint(
+                st.get("Code"), st.get("Message"), {"sign": sign_name})
     return True, r.get("RequestId", ""), "ok"
+
+
+# 腾讯云返回的错误码，翻成页面上能看懂的话。
+_ERR_HINTS = {
+    "FailedOperation.SignatureIncorrectOrUnapproved":
+        "短信签名还没审核通过（当前用的是「%(sign)s」），等审核通过后再试",
+    "FailedOperation.TemplateIncorrectOrUnapproved":
+        "短信模板还没审核通过，等模板审核通过后再试",
+    "FailedOperation.PhoneNumberInBlacklist": "这个号码在腾讯云的退订黑名单里",
+    "UnsupportedRegion": "腾讯云短信不支持这个 Region，用 ap-guangzhou",
+    "AuthFailure.SecretIdNotFound": "SecretId 不对或已删除",
+    "AuthFailure.SignatureFailure": "SecretKey 不对（签名验不过）",
+    "AuthFailure.SignatureExpire": "本机时间和腾讯云差太多，校对一下系统时间",
+    "LimitExceeded.PhoneNumberDailyLimit": "这个号码今天的验证码条数用完了",
+    "LimitExceeded.PhoneNumberThirtySecondLimit": "同一个号码 30 秒内只能发一条",
+}
+
+
+def _hint(code, message, ctx=None):
+    """错误码 → 人话；没有对应条目就原样返回「码：描述」。"""
+    text = _ERR_HINTS.get(str(code or ""))
+    if text:
+        return text % (ctx or {"sign": ""})
+    return "%s：%s" % (code or "Error", message or "")

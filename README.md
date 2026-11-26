@@ -364,6 +364,16 @@ sms:
 `POST /api/auth/login {phone, code}` → 200 + `Set-Cookie: lexify_login=…`；
 `POST /api/auth/logout`；`GET /api/auth/me` → `{loggedIn, phone, loginRequired, smsReady, devMode}`。
 
+发不出去时页面会直接显示腾讯云的原因，常见的几条：
+
+| 返回 | 意思 | 怎么办 |
+| --- | --- | --- |
+| 短信签名还没审核通过 | 签名还在备案/审核中 | 等审核通过；本地开发可以先开 `auth.dev_mode` |
+| UnsupportedRegion | `sms.region` 写成了不支持的地域（比如 `ap-shenzhen`） | 改成 `ap-guangzhou` |
+| SecretId 不对 / SecretKey 不对 | 密钥填错或已删除 | 到访问管理里重新拿一对 |
+| 本机时间和腾讯云差太多 | 服务器时钟漂移 | 校准时间（`timedatectl` / 同步 NTP） |
+| 这个号码今天的验证码条数用完了 | 触发了腾讯云的号码日限 | 换号，或调腾讯云侧的频率限制 |
+
 库里只存哈希：验证码存 `sha256(盐|手机号|验证码)`，会话存 `sha256(盐|session|token)`，
 手机号本身需要存（不然没法判断同一个号的重发间隔），Cookie 是 HttpOnly + SameSite=Lax。
 登录页在 `web/login.html`，顶栏那个「登录 / 138****8000 · 退出」按钮由 `web/auth.js` 维护。

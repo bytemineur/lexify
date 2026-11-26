@@ -70,6 +70,8 @@ sms:
   sdk_app_id: ""
   sign_name: ""
   template_id: ""
+  # SendSms 只支持 ap-guangzhou / ap-beijing 这类地域，ap-shenzhen 会报
+  # UnsupportedRegion（短信的地域只是接入点，不影响能不能发给全国号码）。
   region: ap-guangzhou
 
 # ── 登录与看板权限 ──────────────────────────────────────────────────

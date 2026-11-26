@@ -129,19 +129,28 @@ def main():
     diff, _ = sms.sign_headers("AKIDexample", "secret123", payload, timestamp=1700000001)
     ok("时间戳变化 → 签名变化", diff["Authorization"] != auth)
 
-    print("\n[7] 配置与开关")
-    os.environ.pop("LEXIFY_SMS_SECRET_ID", None)
+    print("\n[7] 错误码人话映射")
+    ok("签名未审核", "签名" in sms._hint(
+        "FailedOperation.SignatureIncorrectOrUnapproved", "x", {"sign": "深圳易诉达"}))
+    ok("地域不支持", "ap-guangzhou" in sms._hint("UnsupportedRegion", "x"))
+    ok("限流", "号码" in sms._hint("LimitExceeded.PhoneNumberDailyLimit", "x"))
+    ok("未知码原样", sms._hint("Something.New", "desc") == "Something.New：desc")
+
+    print("\n[8] 配置与开关")
+    # 本机的 config.yaml 可能已经填了真 Key，这里用假配置覆盖，保证断言稳定。
+    def fake_sms(**over):
+        base = {"secret_id": "", "secret_key": "", "sdk_app_id": "",
+                "sign_name": "", "template_id": "", "region": "ap-guangzhou"}
+        base.update(over)
+        return lambda: dict(base)
+
+    config.sms_conf = fake_sms()
     ok("未配置时 sms_ready False", config.sms_ready() is False)
-    os.environ["LEXIFY_SMS_SECRET_ID"] = "AKIDxxx"
+    config.sms_conf = fake_sms(secret_id="AKIDxxx")
     ok("只配 Id 仍 False", config.sms_ready() is False)
-    os.environ["LEXIFY_SMS_SECRET_KEY"] = "k"
-    os.environ["LEXIFY_SMS_SDK_APP_ID"] = "1400000000"
-    os.environ["LEXIFY_SMS_SIGN_NAME"] = "测试"
-    os.environ["LEXIFY_SMS_TEMPLATE_ID"] = "123456"
+    config.sms_conf = fake_sms(secret_id="AKIDxxx", secret_key="k", sdk_app_id="1400000000",
+                               sign_name="测试", template_id="123456")
     ok("五项齐全 True", config.sms_ready() is True)
-    for k in ("LEXIFY_SMS_SECRET_ID", "LEXIFY_SMS_SECRET_KEY", "LEXIFY_SMS_SDK_APP_ID",
-              "LEXIFY_SMS_SIGN_NAME", "LEXIFY_SMS_TEMPLATE_ID"):
-        os.environ.pop(k, None)
 
     config.auth_conf = _orig["auth_conf"]
     conf = config.auth_conf()
