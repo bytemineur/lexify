@@ -219,6 +219,9 @@ python scripts/manage.py stats            # 看库里有什么
 python scripts/manage.py failures         # 看采集/导入失败记录
 ```
 
+> 两个新看板要用 PDF 库：`pip install pypdf` 就能跑，再装 `pymupdf` 会快 5~10 倍
+> （`collectors/labor/fetch.py` 里优先 pymupdf，没有就退回 pypdf）。两者都缺时采集会直接报错退出。
+>
 > **翻页默认按各站点自己的 `pagination.max_pages` 走**（1~20 页不等，见
 > `collectors/tender/configs/sites/*.yaml`）。`--pages N` 是**覆盖**而不是下限——早期版本
 > 这里写死 `--pages 1`，把每个站点的配置都压成一页，采集量从上千条掉到百来条。
