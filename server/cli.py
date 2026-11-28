@@ -61,6 +61,8 @@ def main():
         print(DB_FIX_HINT % (os.path.dirname(os.path.abspath(DB)),
                              os.path.dirname(os.path.abspath(DB))))
         print("  站点照常可以浏览（页面读的是 web/data/*.js 快照）；采集/上传/重建会失败。")
+    elif why:
+        print("⚠ %s" % why)
 
     if not os.path.exists(DB):
         print("库里还没有数据，先建一个空的：%s" % DB)
@@ -92,7 +94,9 @@ def main():
     if args.admin_only:
         args.bind = "127.0.0.1"
 
-    if not args.no_schedule and writable:
+    # 定时器只在没被显式关掉时启动；库能不能写交给每次任务自己判断
+    # （以前这里还要求 writable，一旦启动时撞上数据库锁，定时器就再也不会启动）。
+    if not args.no_schedule:
         jobsmod.start_scheduler(args.at)
 
     srv = QuietHTTPServer((args.bind, args.port), Handler)
@@ -100,7 +104,7 @@ def main():
     base = "http://%s:%d" % (host, args.port)
     print("站点：  %s/" % base)
     print("后台：  %s/admin" % base)
-    print("定时：  %s" % ("关闭" if args.no_schedule else "每天 " + args.at))
+    print("定时：  %s" % ("关闭" if not jobsmod.SCHEDULER["on"] else "每天 " + args.at))
     print("配置：  %s" % config_summary())
     print("AI 咨询：%s" % ai_line(args.no_ai))
     print("统一库：%s" % DB)

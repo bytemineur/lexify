@@ -5,12 +5,20 @@
 """
 import os
 import sqlite3
+import time
 
 from .config import DB
 
 
-def db_writable():
-    """库到底能不能写 —— 提前探，别等采集跑一半才抛 sqlite 的原文。"""
+def db_writable(retries=4, wait=2.0):
+    """库到底能不能写 —— 提前探，别等采集跑一半才抛 sqlite 的原文。
+
+    注意区分两种失败：
+    - 权限问题（目录/文件不可写）→ 真的不能写，返回 False；
+    - **锁冲突**（上次的采集还没退干净、正握着写锁）→ 只是暂时，重试几次后
+      返回 True 并把原因带出来。以前这里把「database is locked」一律当成不可写，
+      结果启动时正好撞上残留的采集进程，定时器就被静默跳过了。
+    """
     d = os.path.dirname(os.path.abspath(DB))
     if not os.path.isdir(d) or not os.access(d, os.W_OK):
         return False, "目录不可写：%s" % d
@@ -18,16 +26,27 @@ def db_writable():
         return True, ""                        # 库还没建，建库时再看
     if not os.access(DB, os.W_OK):
         return False, "库文件不可写：%s" % DB
-    try:
-        conn = sqlite3.connect(DB, timeout=2)
+
+    last = ""
+    for i in range(max(1, retries)):
         try:
-            conn.execute("BEGIN IMMEDIATE")    # 真拿一次写锁，readonly 会在这里炸
-            conn.rollback()
-        finally:
-            conn.close()
-        return True, ""
-    except sqlite3.Error as e:
-        return False, "%s（%s）" % (e, DB)
+            conn = sqlite3.connect(DB, timeout=2)
+            try:
+                conn.execute("BEGIN IMMEDIATE")    # 真拿一次写锁，readonly 会在这里炸
+                conn.rollback()
+            finally:
+                conn.close()
+            return True, last                   # 抢到锁了；有 last 说明前面撞过锁
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() or "busy" in str(e).lower():
+                last = "库被其它进程占用（%s），重试 %d 次后放行" % (e, retries)
+                time.sleep(wait)
+                continue
+            return False, "%s（%s）" % (e, DB)
+        except sqlite3.Error as e:
+            return False, "%s（%s）" % (e, DB)
+    # 一直锁着：当作「能写，只是现在忙」，别因此关掉定时器
+    return True, last
 
 
 def db_tables_ok():

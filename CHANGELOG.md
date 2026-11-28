@@ -6,6 +6,13 @@
 ## [Unreleased]
 
 ### Added
+- **HTTPS 证书：域名没备案时走 DNS-01**。新增 `scripts/acme_dnspod.py`（纯标准库，TC3-HMAC-SHA256
+  调 DNSPod `CreateRecord` / `DeleteRecord`），配合 certbot 的 `--manual-auth-hook` /
+  `--manual-cleanup-hook`，不依赖 80 端口也能签发和自动续期；`docs/DEPLOY.md` 新增 7.2 节
+  （凭据文件、签发命令、443 反代 + 80 跳转的 nginx 片段、续期自检）。踩过的两个坑写进脚注：
+  同名 TXT 已存在时 `CreateRecord` 报 `InvalidParameter.DomainRecordExist`（先删旧再建）；
+  cleanup 没拿到 RecordId 时按值兜底删
+
 - **短信登录（腾讯云 SMS）**：`web/login.html` + `web/auth.js` + `web/login.css`；
   顶栏统一「登录 / 138****8000 · 退出」按钮；「产品」下五个看板页与 `/api/data/board/*`
   未登录时 302 / 401；新表 `sms_codes`、`auth_sessions`（schema v7，`_v7_auth`）；

@@ -347,6 +347,94 @@ sudo journalctl -u lexify-update.service -f    # 看每次跑的日志
 
 ---
 
+## 7.2 HTTPS 证书：域名没备案时用 DNS-01
+
+备案没过之前，腾讯云会把未备案域名的 80/443 请求在链路层重定向到提示页：
+
+```
+$ curl -I http://example.com/
+HTTP/1.1 302 OK
+Location: https://dnspod.qcloud.com/static/webblock.html?d=example.com
+```
+
+连自定义端口（`:8010`）也一样被拦。所以 certbot 的 HTTP-01 拿不到 challenge
+（报 `Error reading HTTP response body: reader size limit exceeded`），只能走 DNS-01：
+用 DNSPod/腾讯云 API 加一条 `_acme-challenge` TXT 记录来证明域名所有权。
+
+仓库里带了钩子脚本 `scripts/acme_dnspod.py`（纯标准库，TC3-HMAC-SHA256 签名）。
+
+**1）准备凭据**（腾讯云账号需要 DNSPod 权限）：
+
+```bash
+sudo install -d -m 700 /etc/letsencrypt
+sudo tee /etc/letsencrypt/dnspod.env >/dev/null <<'EOF'
+SID=<腾讯云 SecretId>
+SKEY=<腾讯云 SecretKey>
+EOF
+sudo chmod 600 /etc/letsencrypt/dnspod.env
+```
+
+**2）装钩子**
+
+```bash
+sudo install -m 755 scripts/acme_dnspod.py /usr/local/bin/lexify-acme-dnspod.py
+```
+
+**3）签发**（NGINX 配置先写好 443 段，证书没下来时 `nginx -t` 会失败，所以先签再 reload）
+
+```bash
+sudo certbot certonly --manual --preferred-challenges dns \
+  --manual-auth-hook '/usr/bin/python3 /usr/local/bin/lexify-acme-dnspod.py' \
+  --manual-cleanup-hook '/usr/bin/python3 /usr/local/bin/lexify-acme-dnspod.py --cleanup' \
+  --cert-name example.com -d example.com -d www.example.com \
+  --non-interactive --agree-tos
+```
+
+钩子会自动等 TXT 生效（20 秒短轮询，Let's Encrypt 自己也会查权威 NS）。
+
+**4）NGINX（443 反代 8010 + 80 跳转）**
+
+```nginx
+server {
+    server_name example.com www.example.com;
+    location / {
+        proxy_pass http://127.0.0.1:8010;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    listen 443 ssl;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+server {
+    listen 80;
+    server_name example.com www.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+**5）续期**
+
+certbot 会把两个 hook 写进 `/etc/letsencrypt/renewal/<域名>.conf`，所以
+`certbot.timer` 到点直接 `certbot renew` 就行，不用再传 hook。验证一次：
+
+```bash
+sudo certbot renew --cert-name example.com --dry-run
+sudo systemctl list-timers certbot.timer
+```
+
+> 踩过两次坑，脚本里已经处理：同名 TXT 已存在时 `CreateRecord` 会报
+> `InvalidParameter.DomainRecordExist`（要先删旧再建）；`cleanup` 没拿到 RecordId 时按值兜底删。
+
+备案下来后**什么都不用改**，腾讯云的拦截会自己消失，直接 `curl -I https://example.com/` 即可。
+
+---
+
 ## 8. 备份
 
 ```bash
