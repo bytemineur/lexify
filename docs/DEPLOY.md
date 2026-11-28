@@ -291,13 +291,57 @@ systemctl start lexify
 
 | 方式 | 怎么做 |
 |---|---|
-| 定时 | `main.py` 内置，`--at 00:30` 或环境变量 `LEXIFY_UPDATE_AT` |
+| 定时（进程内） | `main.py` 内置线程，`--at 00:30` 或环境变量 `LEXIFY_UPDATE_AT` |
+| 定时（推荐，服务器） | systemd timer 调 `scripts/manage.py update`，见下面那节 |
 | 补跑 | 进程重启时若「今天该跑的点已过、今天还没更新过」，启动即补一次 |
 | 手动（页面） | `/admin` 上的按钮：采集 / 只重建 / 重建并推送 |
 | 手动（命令行） | `python3 scripts/manage.py update` |
 
 补跑靠 `data/last_update.txt` 记「上次成功更新的时间」——用独立文件而不是库里的 `fetched_at`，
 因为手动导入外部数据也会写库，但那不算定时任务跑过。运维时如想跳过补跑，加 `--no-schedule`。
+
+### 7.1 服务器上建议用 systemd timer
+
+进程内那个定时线程跑在 web 进程里，进程一重启它就重来；早期版本里线程抛异常还会**静默消失**
+（表现为「定时再也没跑过」）。服务器上更稳的做法是让 systemd 来管：
+
+```bash
+# /etc/systemd/system/lexify-update.service
+[Unit]
+Description=lexify daily update (crawl -> import -> build -> publish)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/lexify
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/root/anaconda3/envs/lexify/bin/python scripts/manage.py update
+TimeoutStartSec=3600
+
+# /etc/systemd/system/lexify-update.timer
+[Unit]
+Description=Run lexify daily update at 00:30
+
+[Timer]
+OnCalendar=*-*-* 00:30:00
+Persistent=true
+AccuracySec=1min
+Unit=lexify-update.service
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now lexify-update.timer
+systemctl list-timers lexify-update.timer      # 看下次什么时候跑
+sudo journalctl -u lexify-update.service -f    # 看每次跑的日志
+```
+
+用 timer 时把 `config.yaml` 的 `server.schedule` 设成 `false`（否则进程内线程和 timer 会在
+同一分钟各跑一次，抢 SQLite 写锁）。`Persistent=true` 会自动补跑关机期间错过的那次。
 
 推送是**幂等**的：数据没有实质变化（只有 `generatedAt` 变了）就不产生提交。
 

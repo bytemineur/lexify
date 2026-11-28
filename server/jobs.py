@@ -85,14 +85,20 @@ def start_scheduler(at):
     SCHEDULER.update(on=True, at=at)
 
     def loop():
+        # 这个线程一旦抛异常就静默死掉，之后再也没有每日更新，
+        # 所以循环体整体包一层 try/except，并且每轮都重新算下一次时间。
         while True:
-            nxt = next_run(at)
-            print("[定时] 下次运行：%s" % nxt.strftime("%Y-%m-%d %H:%M"), flush=True)
-            while datetime.now() < nxt:
-                time.sleep(min(30, max(1, (nxt - datetime.now()).total_seconds())))
-            run_update()
+            try:
+                nxt = next_run(at)
+                print("[定时] 下次运行：%s" % nxt.strftime("%Y-%m-%d %H:%M"), flush=True)
+                while datetime.now() < nxt:
+                    time.sleep(min(30, max(1, (nxt - datetime.now()).total_seconds())))
+                run_update()
+            except Exception as e:  # noqa: BLE001 - 定时器不能死
+                print("[定时] 本轮出错：%r，60 秒后重试" % (e,), flush=True)
+                time.sleep(60)
 
-    threading.Thread(target=loop, daemon=True).start()
+    threading.Thread(target=loop, daemon=True, name="lexify-scheduler").start()
 
 
 def start_job(label, args):

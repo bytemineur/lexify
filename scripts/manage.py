@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Lexify 数据管理：一个库文件，一条命令。
 
     python scripts/manage.py add 新数据.db        # 去重入库 + 自动重新导出（日常就用这一条）
@@ -569,6 +569,17 @@ def main():
             do_crawl(args.only, args.limit, args.pages, args.sites, rebuild=True)
         print("\n推送到 GitHub…")
         push()
+        if not args.file:
+            # 记一笔「上次成功更新」，和进程内定时器用的是同一个标记文件
+            # （data/last_update.txt）。改成 systemd timer 跑之后，这里是唯一
+            # 会写它的地方，漏写就会一直显示旧时间。
+            try:
+                stamp = os.path.join(os.path.dirname(os.path.abspath(DB)), "last_update.txt")
+                with open(stamp, "w", encoding="utf-8") as f:
+                    f.write(datetime.now().strftime("%Y-%m-%d %H:%M"))
+                print("已记录更新时间：%s" % stamp)
+            except OSError as e:
+                print("写 last_update.txt 失败：%s" % e)
 
 
 if __name__ == "__main__":

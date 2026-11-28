@@ -178,8 +178,12 @@ class Handler(BaseHTTPRequestHandler):
     _client_gone = False
 
     def log_message(self, fmt, *args):
-        if "/admin" in (self.path or ""):
-            print("[%s] %s" % (datetime.now().strftime("%H:%M:%S"), _redact_path(self.path)), flush=True)
+        # 请求行解析失败（扫描器乱发字节）时 self.path 还不存在，
+        # 这里必须用 getattr 兜底，否则 log_error 里会抛 AttributeError，
+        # 在 nohup.out 里刷一大片假 traceback。
+        path = getattr(self, "path", "") or ""
+        if "/admin" in path:
+            print("[%s] %s" % (datetime.now().strftime("%H:%M:%S"), _redact_path(path)), flush=True)
 
     def _send(self, code, body, ctype="text/html; charset=utf-8", extra=None):
         data = body.encode("utf-8") if isinstance(body, str) else body

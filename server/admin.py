@@ -407,7 +407,8 @@ def _tab_system(counts):
         ("库大小", _db_size()),
         ("schema 版本", _schema_version()),
         ("监听", "%s:%s" % (config.BIND, config.PORT)),
-        ("定时采集", ("每天 %s" % SCHEDULER["at"]) if SCHEDULER["on"] else "当前进程没开启（--no-schedule 或配置里关了）"),
+        ("定时采集", ("每天 %s" % SCHEDULER["at"]) if SCHEDULER["on"]
+         else "本进程内没开（server.schedule=false）；如果服务器用 systemd timer / cron 跑 manage.py update，这是正常的"),
         ("后台口令", "已设置（环境变量 / config.yaml）" if config.ADMIN_TOKEN else "未设置 → 只允许本机直连"),
         ("访问统计", ("开 · 保留 %d 天" % ana["retention_days"]) if ana["enabled"] else "关"),
         ("环境变量覆盖", "LEXIFY_* 环境变量优先级高于 config.yaml"),
